@@ -1,0 +1,10 @@
+project(toksin)
+cmake_minimum_required(VERSION 2.8)
+include(FindGLIB2.cmake)
+aux_source_directory(. SRC_LIST)
+aux_source_directory(client_test TCLT_SRC_LIST)
+include_directories(${GLIB2_INCLUDE_DIR} include)
+link_libraries(${GLIB2_LIBRARY} libgio-2.0.so libgobject-2.0.so.0)
+add_executable(${PROJECT_NAME} ${SRC_LIST})
+add_executable(${PROJECT_NAME}_client ${TCLT_SRC_LIST})
+
