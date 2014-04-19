@@ -46,6 +46,19 @@ gboolean incoming_callback  (GSocketService *service,
       switch(oc)
       {
       case OPC_GET_RANGE:
+      {
+          operation_code res = RSP_SET_BLOCK;
+          g_output_stream_write  (ostream,
+                                 &MAGIC,
+                                 sizeof(magic_code),
+                                 NULL,
+                                 NULL);
+          g_output_stream_write  (ostream,
+                                 &res,
+                                 sizeof(operation_code),
+                                 NULL,
+                                 NULL);
+      }
           break;
       case OPC_PING:
       {
@@ -77,7 +90,7 @@ gboolean incoming_callback  (GSocketService *service,
 
 int main (int argc, char **argv)
 {
-
+  g_type_init();
   GError * error = NULL;
   GSocketService * service = g_socket_service_new ();
   g_socket_listener_add_inet_port ((GSocketListener*)service, 1500, NULL, &error);

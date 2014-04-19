@@ -12,14 +12,18 @@ static const magic_code ___mc = 0x544B534E;
 #define OPC_PING 0x00000007
 #define RSP_PONG 0x00000008
 #define OPC_GET_RANGE 0x00000003
+#define RSP_SET_BLOCK 0x00000007
 
 typedef struct _op_get_range
 {
-    long long xa;
-    long long ya;
-    long long xb;
-    long long yb;
+    unsigned int xa, ya, xb, yb;
 } op_get_range;
+
+typedef struct _rsp_set_block
+{
+    unsigned int relative_x, relative_y;
+} rsp_set_block;
+// Send blocks with it. Send a line at one time.
 
 
 #endif // PROTOCOL_H

@@ -4,6 +4,7 @@
 
 int main (int argc, char *argv[])
 {
+  g_type_init();
   GError * error = NULL;
   GSocketConnection * connection = NULL;
   GSocketClient * client = g_socket_client_new();
