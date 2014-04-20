@@ -21,7 +21,7 @@ typedef struct _op_get_range
 
 typedef struct _rsp_set_block
 {
-    unsigned int relative_x, relative_y;
+    unsigned int startx, starty, amount;
 } rsp_set_block;
 // Send blocks with it. Send a line at one time.
 

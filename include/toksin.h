@@ -1,7 +1,7 @@
 #ifndef TOKSIN_H
 #define TOKSIN_H
 
-typedef unsigned long block;
+typedef unsigned long block; // Shall be long enough to contain min_block_type in blocks.h
 
 #define BLOCK_MASK 0xf0000000
 #define ITEM_MASK 0x50000000
@@ -42,5 +42,7 @@ typedef struct _world
 } world;
 
 extern world c_world;
+
+void init_world();
 
 #endif // TOKSIN_H

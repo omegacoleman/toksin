@@ -1,6 +1,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <protocol.h>
+#include <toksin.h>
 
 /* this function will get called everytime a client attempts to connect */
 gboolean incoming_callback  (GSocketService *service,
@@ -48,16 +49,39 @@ gboolean incoming_callback  (GSocketService *service,
       case OPC_GET_RANGE:
       {
           operation_code res = RSP_SET_BLOCK;
-          g_output_stream_write  (ostream,
-                                 &MAGIC,
-                                 sizeof(magic_code),
-                                 NULL,
-                                 NULL);
-          g_output_stream_write  (ostream,
-                                 &res,
-                                 sizeof(operation_code),
-                                 NULL,
-                                 NULL);
+		  op_get_range get_range;
+		  g_input_stream_read  (istream,
+								&get_range,
+								sizeof(op_get_range),
+								NULL,
+								NULL);
+		  rsp_set_block set_block;
+		  set_block.startx = get_range.xa;
+		  set_block.starty = get_range.ya;
+		  set_block.amount = get_range.xb - get_range.xa;
+		  for(; set_block.starty < get_range.yb; set_block.starty++)
+		  {
+			  g_output_stream_write  (ostream,
+									 &MAGIC,
+									 sizeof(magic_code),
+									 NULL,
+									 NULL);
+			  g_output_stream_write  (ostream,
+									 &res,
+									 sizeof(operation_code),
+									 NULL,
+									 NULL);
+			  g_output_stream_write  (ostream,
+									 &set_block,
+									 sizeof(rsp_set_block),
+									 NULL,
+									 NULL);
+			  g_output_stream_write  (ostream,
+				  &(c_world.solids[set_block.starty * WORLD_WIDTH + set_block.startx]),
+				  sizeof(block) * set_block.amount,
+				  NULL,
+				  NULL);
+		  }
       }
           break;
       case OPC_PING:
@@ -91,6 +115,7 @@ gboolean incoming_callback  (GSocketService *service,
 int main (int argc, char **argv)
 {
   g_type_init();
+  init_world();
   GError * error = NULL;
   GSocketService * service = g_socket_service_new ();
   g_socket_listener_add_inet_port ((GSocketListener*)service, 1500, NULL, &error);

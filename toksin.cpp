@@ -1,11 +1,12 @@
 #include <toksin.h>
 #include <blocks.h>
+#include <math.h>
 
 world c_world;
 
 inline block gen_natural_block(unsigned int x, unsigned int y)
 {
-	if (y >= HORIZON)
+	if (y >= HORIZON + sin(x / 5.) * 5.)
 	{
 		return BLCK_DIRT;
 	} else {
