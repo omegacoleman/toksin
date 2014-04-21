@@ -2,14 +2,19 @@
 #include <gio/gio.h>
 #include <protocol.h>
 #include <blocks.h>
+#include "user_interface.h"
 
 typedef min_block_type block;
 bool last_ping_ponged = true;
 gint64 last_ping_time;
-#define SCR_W 30
-#define SCR_H 15
+#define SCR_W 40
+#define SCR_H 30
 block screen[SCR_W * SCR_H];
 unsigned int vx, vy;
+magic_code i_magic;
+
+void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
+void start_poll_events(GInputStream * istream, GOutputStream * ostream);
 
 void do_magic(GInputStream * istream, GOutputStream * ostream)
 {
@@ -47,10 +52,9 @@ void end_connection(GInputStream * istream, GOutputStream * ostream)
 	g_output_stream_write(ostream, &op, sizeof(operation_code), NULL, NULL);
 }
 
-void event_hooker(GInputStream * istream, GOutputStream * ostream)
+void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream)
 {
-	magic_code i_magic;
-	g_input_stream_read(istream, &i_magic, sizeof(magic_code), NULL, NULL);
+	g_input_stream_read_finish(istream, result, NULL);
 	g_assert(i_magic == MAGIC);
 	operation_code rsp_opc;
 	g_input_stream_read(istream, &rsp_opc, sizeof(operation_code), NULL, NULL);
@@ -74,6 +78,12 @@ void event_hooker(GInputStream * istream, GOutputStream * ostream)
 		}
 		break;
 	}
+	start_poll_events(istream, ostream);
+}
+
+void start_poll_events(GInputStream * istream, GOutputStream * ostream)
+{
+	g_input_stream_read_async(istream, &i_magic, sizeof(magic_code), G_PRIORITY_DEFAULT, NULL, (GAsyncReadyCallback)event_hooker, ostream);
 }
 
 void print_screen()
@@ -103,7 +113,9 @@ GOutputStream * ostream;
 void shut()
 {
 	end_connection(istream, ostream);
+	quit_ui();
 	g_print("Bye! \n");
+	exit(0);
 }
 
 #ifdef _MSC_VER
@@ -113,7 +125,6 @@ void shut()
 BOOL CtrlHandler(DWORD fdwCtrlType) 
 {
 	shut();
-	exit(EXIT_SUCCESS);
 	return FALSE;
 }
 
@@ -126,7 +137,7 @@ int main (int argc, char *argv[])
 	GSocketConnection * connection = NULL;
 	GSocketClient * client = g_socket_client_new();
 	connection = g_socket_client_connect_to_host (client,
-												(gchar*)"localhost",
+												(gchar*)"127.0.0.1",
 												1500,
 												NULL,
 												&error);
@@ -136,6 +147,7 @@ int main (int argc, char *argv[])
 	}
 	istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
 	ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
+	init_ui();
 #ifdef _MSC_VER
 	SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE);
 #else
@@ -144,10 +156,20 @@ int main (int argc, char *argv[])
 	vx = 20;
 	vy = 0x8f - 7;
 	flush_screen(istream, ostream);
+	start_poll_events(istream, ostream);
 	while (1)
 	{
-		event_hooker(istream, ostream);
-		print_screen();
+		while (g_main_context_iteration(NULL, FALSE));
+		draw_frame(gen_surface_from_map(screen, SCR_W, SCR_H));
+		SDL_Event e;
+		while (SDL_PollEvent(&e))
+		{
+			if (e.type == SDL_QUIT)
+			{
+				shut();
+			}
+		}
+		g_usleep(60);
 	}
 	return 0;
 }

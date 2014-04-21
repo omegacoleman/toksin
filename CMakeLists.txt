@@ -1,10 +1,11 @@
 project(toksin)
 cmake_minimum_required(VERSION 2.8)
 include(FindGLIB2.cmake)
+include(FindSDL2.cmake)
 aux_source_directory(. SRC_LIST)
 aux_source_directory(client_test TCLT_SRC_LIST)
-include_directories(${GLIB2_INCLUDE_DIR} include)
-link_libraries(${GLIB2_LIBRARY} gobject-2.0 gio-2.0)
+include_directories(${GLIB2_INCLUDE_DIR} ${SDL2_INCLUDE_DIR} include client_test/include)
+link_libraries(${GLIB2_LIBRARY} ${SDL2_LIBRARY} gobject-2.0 gio-2.0)
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 add_executable(${PROJECT_NAME}_client ${TCLT_SRC_LIST})
 
