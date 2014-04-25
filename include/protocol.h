@@ -1,8 +1,9 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-typedef unsigned int magic_code;
-typedef unsigned int operation_code;
+#include <inttypes.h>
+typedef uint32_t magic_code;
+typedef uint32_t operation_code;
 
 static const magic_code ___mc = 0x544B534E;
 
@@ -16,12 +17,12 @@ static const magic_code ___mc = 0x544B534E;
 
 typedef struct _op_get_range
 {
-    unsigned int xa, ya, xb, yb;
+    uint32_t xa, ya, xb, yb;
 } op_get_range;
 
 typedef struct _rsp_set_block
 {
-    unsigned int startx, starty, amount;
+    uint32_t startx, starty, amount;
 } rsp_set_block;
 // Send blocks with it. Send a line at one time.
 

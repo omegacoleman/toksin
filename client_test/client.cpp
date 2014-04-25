@@ -12,7 +12,7 @@ gint64 last_ping_time;
 #define SCR_H 30
 #define SCREEN_STEP 1
 block screen[SCR_W * SCR_H];
-unsigned int vx, vy;
+uint32_t vx, vy;
 magic_code i_magic;
 
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
@@ -79,7 +79,7 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 		{
 			rsp_set_block rsp_struct;
 			g_input_stream_read(istream, &rsp_struct, sizeof(rsp_set_block), NULL, NULL);
-			unsigned int startp = (rsp_struct.starty - vy) * SCR_W + (rsp_struct.startx - vx);
+			uint32_t startp = (rsp_struct.starty - vy) * SCR_W + (rsp_struct.startx - vx);
 			g_input_stream_read(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, NULL, NULL);
 			if (rsp_struct.starty == (vy + SCR_H - 1))
 			{
@@ -146,11 +146,13 @@ int main (int argc, char *argv[])
 	GError * error = NULL;
 	GSocketConnection * connection = NULL;
 	GSocketClient * client = g_socket_client_new();
-	connection = g_socket_client_connect_to_host (client,
-												(gchar*)"localhost",
-												1500,
-												NULL,
-												&error);
+	if (argc > 1)
+	{
+		g_message("Server : %s", argv[1]);
+		connection = g_socket_client_connect_to_host (client, (gchar*)argv[1], 1500, NULL, &error);
+	} else {
+		connection = g_socket_client_connect_to_host (client, (gchar*)"127.0.0.1", 1500, NULL, &error);
+	}
 	if (error != NULL)
 	{
 		g_error (error->message);

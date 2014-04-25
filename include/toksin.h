@@ -1,8 +1,10 @@
 #ifndef TOKSIN_H
 #define TOKSIN_H
 
+#include <inttypes.h>
 #include <blocks.h>
-typedef unsigned long block; // Shall be long enough to contain min_block_type in blocks.h
+
+typedef uint64_t block; // Shall be long enough to contain min_block_type in blocks.h
 
 #define BLOCK_MASK 0xf0000000
 #define ITEM_MASK 0x50000000
@@ -20,15 +22,15 @@ typedef unsigned long block; // Shall be long enough to contain min_block_type i
 typedef struct _role
 {
 	char name[64];
-	unsigned int pos_x;
-	unsigned int pos_y;
+	uint32_t pos_x;
+	uint32_t pos_y;
 } role;
 
 typedef struct _placed_item
 {
 	block item;
-	unsigned int pos_x;
-	unsigned int pos_y;
+	uint32_t pos_x;
+	uint32_t pos_y;
 } placed_item;
 
 typedef struct _world
@@ -36,8 +38,8 @@ typedef struct _world
 	block solids[WORLD_HEIGHT * WORLD_WIDTH];
 	placed_item items[WORLD_ITEM_POOL_WIDTH];
 	role roles[WORLD_ROLE_POOL_WIDTH];
-	unsigned int item_nr;
-	unsigned int role_nr;
+	uint32_t item_nr;
+	uint32_t role_nr;
 } world;
 
 extern world c_world;
