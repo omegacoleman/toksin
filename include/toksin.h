@@ -1,6 +1,7 @@
 #ifndef TOKSIN_H
 #define TOKSIN_H
 
+#include <blocks.h>
 typedef unsigned long block; // Shall be long enough to contain min_block_type in blocks.h
 
 #define BLOCK_MASK 0xf0000000
@@ -11,8 +12,6 @@ typedef unsigned long block; // Shall be long enough to contain min_block_type i
 #define _GENERATE_ITEM(b) (((block)(b | ITEM_MASK)))
 #define _GENERATE_ROLE(b) (((block)(b | ROLE_MASK)))
 
-#define WORLD_HEIGHT 0xff
-#define WORLD_WIDTH 0xffff
 #define WORLD_ITEM_POOL_WIDTH 0xfff
 #define WORLD_ROLE_POOL_WIDTH 0xff
 

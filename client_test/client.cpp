@@ -6,9 +6,11 @@
 
 typedef min_block_type block;
 bool last_ping_ponged = true;
+bool flushing = false;
 gint64 last_ping_time;
 #define SCR_W 40
 #define SCR_H 30
+#define SCREEN_STEP 1
 block screen[SCR_W * SCR_H];
 unsigned int vx, vy;
 magic_code i_magic;
@@ -34,15 +36,19 @@ void ping(GInputStream * istream, GOutputStream * ostream)
 
 void flush_screen(GInputStream * istream, GOutputStream * ostream)
 {
-	do_magic(istream, ostream);
-	operation_code op = OPC_GET_RANGE;
-	g_output_stream_write(ostream, &op, sizeof(operation_code), NULL, NULL);
-	op_get_range pend;
-	pend.xa = vx;
-	pend.ya = vy;
-	pend.xb = vx + SCR_W;
-	pend.yb = vy + SCR_H;
-	g_output_stream_write(ostream, &pend, sizeof(op_get_range), NULL, NULL);
+	if (!flushing)
+	{
+		flushing = true;
+		do_magic(istream, ostream);
+		operation_code op = OPC_GET_RANGE;
+		g_output_stream_write(ostream, &op, sizeof(operation_code), NULL, NULL);
+		op_get_range pend;
+		pend.xa = vx;
+		pend.ya = vy;
+		pend.xb = vx + SCR_W;
+		pend.yb = vy + SCR_H;
+		g_output_stream_write(ostream, &pend, sizeof(op_get_range), NULL, NULL);
+	}
 }
 
 void end_connection(GInputStream * istream, GOutputStream * ostream)
@@ -75,6 +81,10 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 			g_input_stream_read(istream, &rsp_struct, sizeof(rsp_set_block), NULL, NULL);
 			unsigned int startp = (rsp_struct.starty - vy) * SCR_W + (rsp_struct.startx - vx);
 			g_input_stream_read(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, NULL, NULL);
+			if (rsp_struct.starty == (vy + SCR_H - 1))
+			{
+				flushing = false;
+			}
 		}
 		break;
 	}
@@ -137,7 +147,7 @@ int main (int argc, char *argv[])
 	GSocketConnection * connection = NULL;
 	GSocketClient * client = g_socket_client_new();
 	connection = g_socket_client_connect_to_host (client,
-												(gchar*)"127.0.0.1",
+												(gchar*)"localhost",
 												1500,
 												NULL,
 												&error);
@@ -153,14 +163,51 @@ int main (int argc, char *argv[])
 #else
 	atexit(&shut);
 #endif
-	vx = 20;
+	vx = 2000;
 	vy = 0x8f - 7;
 	flush_screen(istream, ostream);
 	start_poll_events(istream, ostream);
 	while (1)
 	{
-		while (g_main_context_iteration(NULL, FALSE));
-		draw_frame(gen_surface_from_map(screen, SCR_W, SCR_H));
+		while(g_main_context_iteration(NULL, FALSE));
+		draw_map(screen, SCR_W, SCR_H);
+		draw_frame();
+		if(!flushing)
+		{
+			const Uint8 *state = SDL_GetKeyboardState(NULL);
+			if (state[SDL_SCANCODE_W])
+			{
+				if (vy >= SCREEN_STEP)
+				{
+					vy -= SCREEN_STEP;
+				}
+			}
+			if (state[SDL_SCANCODE_S])
+			{
+				if (vy <= (WORLD_HEIGHT - SCREEN_STEP))
+				{
+					vy += SCREEN_STEP;
+				}
+			}
+			if (state[SDL_SCANCODE_A])
+			{
+				if (vx >= SCREEN_STEP)
+				{
+					vx -= SCREEN_STEP;
+				}
+			}
+			if (state[SDL_SCANCODE_D])
+			{
+				if (vx <= (WORLD_WIDTH - SCREEN_STEP))
+				{
+					vx += SCREEN_STEP;
+				}
+			}
+			if (state[SDL_SCANCODE_W] || state[SDL_SCANCODE_A] || state[SDL_SCANCODE_S] || state[SDL_SCANCODE_D])
+			{
+				flush_screen(istream, ostream);
+			}
+		}
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
@@ -169,7 +216,7 @@ int main (int argc, char *argv[])
 				shut();
 			}
 		}
-		g_usleep(60);
+		g_usleep(600);
 	}
 	return 0;
 }

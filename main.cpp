@@ -117,14 +117,14 @@ int main (int argc, char **argv)
   g_type_init();
   init_world();
   GError * error = NULL;
-  GSocketService * service = g_socket_service_new ();
+  GSocketService * service = g_threaded_socket_service_new (-1);
   g_socket_listener_add_inet_port ((GSocketListener*)service, 1500, NULL, &error);
   if (error != NULL)
   {
       g_error (error->message);
   }
   g_signal_connect (service,
-                    "incoming",
+                    "run",
                     G_CALLBACK (incoming_callback),
                     NULL);
   g_socket_service_start (service);

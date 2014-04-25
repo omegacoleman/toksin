@@ -5,8 +5,8 @@
 #include "blocks.h"
 
 void init_ui();
-void draw_frame(SDL_Surface *frame);
+void draw_frame();
 void quit_ui();
-SDL_Surface *gen_surface_from_map(min_block_type *map, int w, int h);
+void draw_map(min_block_type *map, int w, int h);
 
 #endif // USER_INTERFACE_H

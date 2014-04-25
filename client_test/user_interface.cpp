@@ -9,13 +9,14 @@
 static SDL_Window *win;
 static SDL_Renderer *ren;
 static SDL_Texture *tex;
+SDL_Surface *surface;
 
 void init_ui()
 {
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0){
 		g_error("SDL_Init Error: %s", SDL_GetError());
 	}
-	win = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
+	win = SDL_CreateWindow("Toksin 0.0.1", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
 	if (win == nullptr){
 		g_error("SDL_CreateWindow Error: %s", SDL_GetError());
 	}
@@ -23,13 +24,13 @@ void init_ui()
 	if (ren == nullptr){
 		g_error("SDL_CreateRenderer Error: %s", SDL_GetError());
 	}
+	surface = SDL_CreateRGBSurface(0, WINDOW_W, WINDOW_H, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 }
 
-void draw_frame(SDL_Surface *frame)
+void draw_frame()
 {
 	SDL_DestroyTexture(tex);
-	tex = SDL_CreateTextureFromSurface(ren, frame);
-	SDL_FreeSurface(frame);
+	tex = SDL_CreateTextureFromSurface(ren, surface);
 	if (tex == nullptr){
 		g_error("SDL_CreateTextureFromSurface Error: %s", SDL_GetError());
 	}
@@ -38,12 +39,11 @@ void draw_frame(SDL_Surface *frame)
 	SDL_RenderPresent(ren);
 }
 
-SDL_Surface *gen_surface_from_map(min_block_type *map, int w, int h)
+void draw_map(min_block_type *map, int w, int h)
 {
 	SDL_Rect cr;
 	cr.w = WINDOW_W / w;
 	cr.h = WINDOW_H / h;
-	SDL_Surface *surface = SDL_CreateRGBSurface(0, WINDOW_W, WINDOW_H, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 	for (int i = 0; i < h; i++)
 	{
 		for (int j = 0; j < w; j++)
@@ -61,11 +61,12 @@ SDL_Surface *gen_surface_from_map(min_block_type *map, int w, int h)
 			}
 		}
 	}
-	return surface;
 }
 
 void quit_ui()
 {
+	SDL_DestroyTexture(tex);
+	SDL_FreeSurface(surface);
 	SDL_DestroyRenderer(ren);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
