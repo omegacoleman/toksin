@@ -9,6 +9,7 @@ gboolean incoming_callback  (GSocketService *service,
                     GObject *source_object,
                     gpointer user_data)
 {
+  gsize bytes_transferred;
   GError * error = NULL;
   GSocketAddress *addr = g_socket_connection_get_remote_address(connection, &error);
   char *s_addr = g_inet_address_to_string(
@@ -26,9 +27,10 @@ gboolean incoming_callback  (GSocketService *service,
   while (1)
   {
       magic_code i_magic;
-      g_input_stream_read  (istream,
+      g_input_stream_read_all  (istream,
                             &i_magic,
                             sizeof(magic_code),
+                            &bytes_transferred, 
                             NULL,
                             NULL);
       if (i_magic != MAGIC)
@@ -39,9 +41,10 @@ gboolean incoming_callback  (GSocketService *service,
       }
 
       operation_code oc;
-      g_input_stream_read  (istream,
+      g_input_stream_read_all  (istream,
                             &oc,
                             sizeof(operation_code),
+                            &bytes_transferred, 
                             NULL,
                             NULL);
       switch(oc)
@@ -50,9 +53,10 @@ gboolean incoming_callback  (GSocketService *service,
       {
           operation_code res = RSP_SET_BLOCK;
 		  op_get_range get_range;
-		  g_input_stream_read  (istream,
+		  g_input_stream_read_all  (istream,
 								&get_range,
 								sizeof(op_get_range),
+                     &bytes_transferred, 
 								NULL,
 								NULL);
 		  rsp_set_block set_block;
@@ -61,24 +65,28 @@ gboolean incoming_callback  (GSocketService *service,
 		  set_block.amount = get_range.xb - get_range.xa;
 		  for(; set_block.starty < get_range.yb; set_block.starty++)
 		  {
-			  g_output_stream_write  (ostream,
+			  g_output_stream_write_all  (ostream,
 									 &MAGIC,
 									 sizeof(magic_code),
+                         &bytes_transferred, 
 									 NULL,
 									 NULL);
-			  g_output_stream_write  (ostream,
+			  g_output_stream_write_all  (ostream,
 									 &res,
 									 sizeof(operation_code),
+                         &bytes_transferred, 
 									 NULL,
 									 NULL);
-			  g_output_stream_write  (ostream,
+			  g_output_stream_write_all  (ostream,
 									 &set_block,
 									 sizeof(rsp_set_block),
+                         &bytes_transferred, 
 									 NULL,
 									 NULL);
-			  g_output_stream_write  (ostream,
+			  g_output_stream_write_all  (ostream,
 				  &(c_world.solids[set_block.starty * WORLD_WIDTH + set_block.startx]),
 				  sizeof(block) * set_block.amount,
+             &bytes_transferred, 
 				  NULL,
 				  NULL);
 		  }
@@ -87,14 +95,16 @@ gboolean incoming_callback  (GSocketService *service,
       case OPC_PING:
       {
           operation_code res = RSP_PONG;
-          g_output_stream_write  (ostream,
+          g_output_stream_write_all  (ostream,
                                  &MAGIC,
                                  sizeof(magic_code),
+                                 &bytes_transferred, 
                                  NULL,
                                  NULL);
-          g_output_stream_write  (ostream,
+          g_output_stream_write_all  (ostream,
                                  &res,
                                  sizeof(operation_code),
+                                 &bytes_transferred, 
                                  NULL,
                                  NULL);
       }

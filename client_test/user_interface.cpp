@@ -17,11 +17,11 @@ void init_ui()
 		g_error("SDL_Init Error: %s", SDL_GetError());
 	}
 	win = SDL_CreateWindow("Toksin 0.0.1", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
-	if (win == nullptr){
+	if (win == NULL){
 		g_error("SDL_CreateWindow Error: %s", SDL_GetError());
 	}
 	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	if (ren == nullptr){
+	if (ren == NULL){
 		g_error("SDL_CreateRenderer Error: %s", SDL_GetError());
 	}
 	surface = SDL_CreateRGBSurface(0, WINDOW_W, WINDOW_H, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
@@ -31,7 +31,7 @@ void draw_frame()
 {
 	SDL_DestroyTexture(tex);
 	tex = SDL_CreateTextureFromSurface(ren, surface);
-	if (tex == nullptr){
+	if (tex == NULL){
 		g_error("SDL_CreateTextureFromSurface Error: %s", SDL_GetError());
 	}
 	SDL_RenderClear(ren);

@@ -20,50 +20,61 @@ void start_poll_events(GInputStream * istream, GOutputStream * ostream);
 
 void do_magic(GInputStream * istream, GOutputStream * ostream)
 {
-	g_output_stream_write(ostream, &MAGIC, sizeof(magic_code), NULL, NULL);
+	gsize bytes_write;
+	g_output_stream_write_all(ostream, &MAGIC, sizeof(magic_code), &bytes_write, NULL, NULL);
+	g_assert(bytes_write == sizeof(magic_code));
 }
 
 void ping(GInputStream * istream, GOutputStream * ostream)
 {
+	gsize bytes_write;
 	do_magic(istream, ostream);
 	if (last_ping_ponged)
 	{
 		operation_code op = OPC_PING;
 		last_ping_time = g_get_real_time();
-		g_output_stream_write(ostream, &op, sizeof(operation_code), NULL, NULL);
+		g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+		g_assert(bytes_write == sizeof(operation_code));
 	}
 }
 
 void flush_screen(GInputStream * istream, GOutputStream * ostream)
 {
+	gsize bytes_write;
 	if (!flushing)
 	{
 		flushing = true;
 		do_magic(istream, ostream);
 		operation_code op = OPC_GET_RANGE;
-		g_output_stream_write(ostream, &op, sizeof(operation_code), NULL, NULL);
+		g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+		g_assert(bytes_write == sizeof(operation_code));
 		op_get_range pend;
 		pend.xa = vx;
 		pend.ya = vy;
 		pend.xb = vx + SCR_W;
 		pend.yb = vy + SCR_H;
-		g_output_stream_write(ostream, &pend, sizeof(op_get_range), NULL, NULL);
+		g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, NULL);
+		g_assert(bytes_write == sizeof(op_get_range));
 	}
 }
 
 void end_connection(GInputStream * istream, GOutputStream * ostream)
 {
+	gsize bytes_write;
 	do_magic(istream, ostream);
 	operation_code op = OPC_CLOSE;
-	g_output_stream_write(ostream, &op, sizeof(operation_code), NULL, NULL);
+	g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+	g_assert(bytes_write == sizeof(operation_code));
 }
 
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream)
 {
+	gsize bytes_read;
 	g_input_stream_read_finish(istream, result, NULL);
 	g_assert(i_magic == MAGIC);
 	operation_code rsp_opc;
-	g_input_stream_read(istream, &rsp_opc, sizeof(operation_code), NULL, NULL);
+	g_input_stream_read_all(istream, &rsp_opc, sizeof(operation_code), &bytes_read, NULL, NULL);
+	g_assert(bytes_read == sizeof(operation_code));
 	switch(rsp_opc)
 	{
 	case RSP_PONG:
@@ -78,9 +89,11 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 	case RSP_SET_BLOCK:
 		{
 			rsp_set_block rsp_struct;
-			g_input_stream_read(istream, &rsp_struct, sizeof(rsp_set_block), NULL, NULL);
+			g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_set_block), &bytes_read, NULL, NULL);
+			g_assert(bytes_read == sizeof(rsp_set_block));
 			uint32_t startp = (rsp_struct.starty - vy) * SCR_W + (rsp_struct.startx - vx);
-			g_input_stream_read(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, NULL, NULL);
+			g_input_stream_read_all(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, &bytes_read, NULL, NULL);
+			g_assert(bytes_read == (sizeof(block) * rsp_struct.amount));
 			if (rsp_struct.starty == (vy + SCR_H - 1))
 			{
 				flushing = false;
