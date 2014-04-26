@@ -138,7 +138,6 @@ void shut()
 	end_connection(istream, ostream);
 	quit_ui();
 	g_print("Bye! \n");
-	exit(0);
 }
 
 #ifdef _MSC_VER
@@ -148,6 +147,7 @@ void shut()
 BOOL CtrlHandler(DWORD fdwCtrlType) 
 {
 	shut();
+	exit(0);
 	return FALSE;
 }
 
@@ -228,7 +228,7 @@ int main (int argc, char *argv[])
 		{
 			if (e.type == SDL_QUIT)
 			{
-				shut();
+				exit(0);
 			}
 		}
 		g_usleep(600);
