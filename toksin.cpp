@@ -1,5 +1,5 @@
-#include <toksin.h>
-#include <blocks.h>
+#include "toksin.hpp"
+#include "blocks.hpp"
 #include <math.h>
 #include <glib.h>
 

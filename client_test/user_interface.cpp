@@ -1,7 +1,7 @@
 #include <SDL.h>
 #include <glib.h>
-#include "user_interface.h"
-#include "blocks.h"
+#include "user_interface.hpp"
+#include "blocks.hpp"
 
 
 static SDL_Window *win;

@@ -2,7 +2,7 @@
 #define TOKSIN_H
 
 #include <inttypes.h>
-#include <blocks.h>
+#include "blocks.hpp"
 
 typedef uint64_t block; // Shall be long enough to contain min_block_type in blocks.h
 

@@ -1,7 +1,7 @@
 #include <glib.h>
 #include <gio/gio.h>
-#include <protocol.h>
-#include <toksin.h>
+#include "protocol.hpp"
+#include "toksin.hpp"
 
 gint64 last_modify_time;
 

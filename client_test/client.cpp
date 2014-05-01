@@ -1,8 +1,8 @@
 #include <glib.h>
 #include <gio/gio.h>
-#include <protocol.h>
-#include <blocks.h>
-#include "user_interface.h"
+#include "protocol.hpp"
+#include "blocks.hpp"
+#include "user_interface.hpp"
 
 typedef min_block_type block;
 bool last_ping_ponged = true;

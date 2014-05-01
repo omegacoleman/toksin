@@ -2,7 +2,7 @@
 #define USER_INTERFACE_H
 
 #include <SDL.h>
-#include "blocks.h"
+#include "blocks.hpp"
 
 #define WINDOW_W 800
 #define WINDOW_H 600
