@@ -58,6 +58,20 @@ void flush_screen(GInputStream * istream, GOutputStream * ostream)
 	}
 }
 
+void do_dig(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint32_t y)
+{
+	op_dig dig;
+	dig.xa = x + vx;
+	dig.ya = y + vy;
+	gsize bytes_write;
+	do_magic(istream, ostream);
+	operation_code op = OPC_DIG;
+	g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+	g_assert(bytes_write == sizeof(operation_code));
+	g_output_stream_write_all(ostream, &dig, sizeof(op_dig), &bytes_write, NULL, NULL);
+	g_assert(bytes_write == sizeof(op_dig));
+}
+
 void end_connection(GInputStream * istream, GOutputStream * ostream)
 {
 	gsize bytes_write;
@@ -99,6 +113,9 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 				flushing = false;
 			}
 		}
+		break;
+	case RSP_FLUSH_REQUEST:
+		flush_screen(istream, ostream);
 		break;
 	}
 	start_poll_events(istream, ostream);
@@ -175,9 +192,8 @@ int main (int argc, char *argv[])
 	init_ui();
 #ifdef _MSC_VER
 	SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE);
-#else
-	atexit(&shut);
 #endif
+	atexit(&shut);
 	vx = 2000;
 	vy = 0x8f - 7;
 	flush_screen(istream, ostream);
@@ -199,7 +215,7 @@ int main (int argc, char *argv[])
 			}
 			if (state[SDL_SCANCODE_S])
 			{
-				if (vy <= (WORLD_HEIGHT - SCREEN_STEP))
+				if (vy <= (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
 				{
 					vy += SCREEN_STEP;
 				}
@@ -213,7 +229,7 @@ int main (int argc, char *argv[])
 			}
 			if (state[SDL_SCANCODE_D])
 			{
-				if (vx <= (WORLD_WIDTH - SCREEN_STEP))
+				if (vx <= (WORLD_WIDTH - SCREEN_STEP - SCR_W))
 				{
 					vx += SCREEN_STEP;
 				}
@@ -229,6 +245,10 @@ int main (int argc, char *argv[])
 			if (e.type == SDL_QUIT)
 			{
 				exit(0);
+			}
+			if (e.type == SDL_MOUSEBUTTONDOWN)
+			{
+				do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
 			}
 		}
 		g_usleep(600);

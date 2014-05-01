@@ -4,6 +4,9 @@
 #include <SDL.h>
 #include "blocks.h"
 
+#define WINDOW_W 800
+#define WINDOW_H 600
+
 void init_ui();
 void draw_frame();
 void quit_ui();

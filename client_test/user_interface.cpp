@@ -3,8 +3,6 @@
 #include "user_interface.h"
 #include "blocks.h"
 
-#define WINDOW_W 800
-#define WINDOW_H 600
 
 static SDL_Window *win;
 static SDL_Renderer *ren;
