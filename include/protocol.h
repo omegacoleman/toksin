@@ -25,8 +25,8 @@ typedef struct _op_get_range
 typedef struct _op_dig
 {
     uint32_t xa, ya;
-	// uint32_t tool;
-}op_dig;
+    // uint32_t tool;
+} op_dig;
 
 typedef struct _rsp_set_block
 {

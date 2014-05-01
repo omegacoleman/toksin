@@ -21,25 +21,25 @@ typedef uint64_t block; // Shall be long enough to contain min_block_type in blo
 
 typedef struct _role
 {
-	char name[64];
-	uint32_t pos_x;
-	uint32_t pos_y;
+    char name[64];
+    uint32_t pos_x;
+    uint32_t pos_y;
 } role;
 
 typedef struct _placed_item
 {
-	block item;
-	uint32_t pos_x;
-	uint32_t pos_y;
+    block item;
+    uint32_t pos_x;
+    uint32_t pos_y;
 } placed_item;
 
 typedef struct _world
 {
-	block solids[WORLD_HEIGHT * WORLD_WIDTH];
-	placed_item items[WORLD_ITEM_POOL_WIDTH];
-	role roles[WORLD_ROLE_POOL_WIDTH];
-	uint32_t item_nr;
-	uint32_t role_nr;
+    block solids[WORLD_HEIGHT * WORLD_WIDTH];
+    placed_item items[WORLD_ITEM_POOL_WIDTH];
+    role roles[WORLD_ROLE_POOL_WIDTH];
+    uint32_t item_nr;
+    uint32_t role_nr;
 } world;
 
 extern world c_world;
