@@ -45,5 +45,6 @@ typedef struct _world
 extern world c_world;
 
 void init_world();
+void dump_world_to_file();
 
 #endif // TOKSIN_H

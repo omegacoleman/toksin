@@ -335,6 +335,12 @@ void respond_to_opcode(GInputStream* istream, GAsyncResult* result, callback_dat
     start_respond_to_opcode(istream, callback_data);
 }
 
+gboolean callback_backup(gpointer data)
+{
+	dump_world_to_file();
+	return TRUE;
+}
+
 int main (int argc, char **argv)
 {
     g_type_init();
@@ -351,6 +357,8 @@ int main (int argc, char **argv)
     g_message("Waiting for client!");
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
     last_modify_time = g_get_real_time();
+	g_timeout_add_seconds(120, callback_backup, NULL);
+	atexit(dump_world_to_file);
     g_main_loop_run(loop);
     return 0;
 }
