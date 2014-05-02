@@ -206,7 +206,7 @@ int main (int argc, char *argv[])
     istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
     ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
     init_ui();
-    vx = 2000;
+    vx = 0;
     vy = 0x8f - 7;
     flush_screen(istream, ostream);
     start_poll_events(istream, ostream);
