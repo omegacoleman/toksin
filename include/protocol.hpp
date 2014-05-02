@@ -16,6 +16,7 @@ static const magic_code ___mc = 0x544B534E;
 #define RSP_SET_BLOCK 0x00000004
 #define OPC_DIG 0x00000005
 #define RSP_FLUSH_REQUEST 0x00000006
+#define OPC_PLACE 0x00000007
 
 typedef struct _op_get_range
 {
@@ -27,6 +28,12 @@ typedef struct _op_dig
     uint32_t xa, ya;
     // uint32_t tool;
 } op_dig;
+
+typedef struct _op_place
+{
+    uint32_t xa, ya;
+    // uint32_t what;
+} op_place;
 
 typedef struct _rsp_set_block
 {

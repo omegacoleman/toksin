@@ -14,14 +14,18 @@ gint64 last_ping_time;
 block screen[SCR_W * SCR_H];
 uint32_t vx, vy;
 magic_code i_magic;
+GError *error = NULL;
 
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
 void start_poll_events(GInputStream * istream, GOutputStream * ostream);
 
+#define ifnsucceed(e, w) if(e != NULL){g_error("Error occured when : %s", w);}
+
 void do_magic(GInputStream * istream, GOutputStream * ostream)
 {
     gsize bytes_write;
-    g_output_stream_write_all(ostream, &MAGIC, sizeof(magic_code), &bytes_write, NULL, NULL);
+    g_output_stream_write_all(ostream, &MAGIC, sizeof(magic_code), &bytes_write, NULL, &error);
+	ifnsucceed(error, "do_magic");
     g_assert(bytes_write == sizeof(magic_code));
 }
 
@@ -33,7 +37,8 @@ void ping(GInputStream * istream, GOutputStream * ostream)
     {
         operation_code op = OPC_PING;
         last_ping_time = g_get_real_time();
-        g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+        g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+		ifnsucceed(error, "ping");
         g_assert(bytes_write == sizeof(operation_code));
     }
 }
@@ -46,14 +51,16 @@ void flush_screen(GInputStream * istream, GOutputStream * ostream)
         flushing = true;
         do_magic(istream, ostream);
         operation_code op = OPC_GET_RANGE;
-        g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+        g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+		ifnsucceed(error, "writing opcode in flush_screen");
         g_assert(bytes_write == sizeof(operation_code));
         op_get_range pend;
         pend.xa = vx;
         pend.ya = vy;
         pend.xb = vx + SCR_W;
         pend.yb = vy + SCR_H;
-        g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, NULL);
+        g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, &error);
+		ifnsucceed(error, "pending operation in flush_screen");
         g_assert(bytes_write == sizeof(op_get_range));
     }
 }
@@ -66,9 +73,27 @@ void do_dig(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint32_
     gsize bytes_write;
     do_magic(istream, ostream);
     operation_code op = OPC_DIG;
-    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+	ifnsucceed(error, "writing opcode in do_dig");
     g_assert(bytes_write == sizeof(operation_code));
-    g_output_stream_write_all(ostream, &dig, sizeof(op_dig), &bytes_write, NULL, NULL);
+    g_output_stream_write_all(ostream, &dig, sizeof(op_dig), &bytes_write, NULL, &error);
+	ifnsucceed(error, "pending operation in do_dig");
+    g_assert(bytes_write == sizeof(op_dig));
+}
+
+void do_place(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint32_t y)
+{
+    op_place placement;
+    placement.xa = x + vx;
+    placement.ya = y + vy;
+    gsize bytes_write;
+    do_magic(istream, ostream);
+	operation_code op = OPC_PLACE;
+    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+	ifnsucceed(error, "writing opcode in do_place");
+    g_assert(bytes_write == sizeof(operation_code));
+    g_output_stream_write_all(ostream, &placement, sizeof(op_dig), &bytes_write, NULL, &error);
+	ifnsucceed(error, "pending operation in do_place");
     g_assert(bytes_write == sizeof(op_dig));
 }
 
@@ -77,17 +102,20 @@ void end_connection(GInputStream * istream, GOutputStream * ostream)
     gsize bytes_write;
     do_magic(istream, ostream);
     operation_code op = OPC_CLOSE;
-    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, NULL);
+    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+	ifnsucceed(error, "end_connection");
     g_assert(bytes_write == sizeof(operation_code));
 }
 
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream)
 {
     gsize bytes_read;
-    g_input_stream_read_finish(istream, result, NULL);
+    g_input_stream_read_finish(istream, result, &error);
+	ifnsucceed(error, "event_hooker");
     g_assert(i_magic == MAGIC);
     operation_code rsp_opc;
-    g_input_stream_read_all(istream, &rsp_opc, sizeof(operation_code), &bytes_read, NULL, NULL);
+    g_input_stream_read_all(istream, &rsp_opc, sizeof(operation_code), &bytes_read, NULL, &error);
+	ifnsucceed(error, "reading rsp code in event_hooker");
     g_assert(bytes_read == sizeof(operation_code));
     switch(rsp_opc)
     {
@@ -103,10 +131,12 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
     case RSP_SET_BLOCK:
     {
         rsp_set_block rsp_struct;
-        g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_set_block), &bytes_read, NULL, NULL);
+        g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_set_block), &bytes_read, NULL, &error);
+		ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s1");
         g_assert(bytes_read == sizeof(rsp_set_block));
         uint32_t startp = (rsp_struct.starty - vy) * SCR_W + (rsp_struct.startx - vx);
-        g_input_stream_read_all(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, &bytes_read, NULL, NULL);
+        g_input_stream_read_all(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, &bytes_read, NULL, &error);
+		ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s2");
         g_assert(bytes_read == (sizeof(block) * rsp_struct.amount));
         if (rsp_struct.starty == (vy + SCR_H - 1))
         {
@@ -173,7 +203,6 @@ BOOL CtrlHandler(DWORD fdwCtrlType)
 int main (int argc, char *argv[])
 {
     g_type_init();
-    GError * error = NULL;
     GSocketConnection * connection = NULL;
     GSocketClient * client = g_socket_client_new();
     if (argc > 1)
@@ -185,10 +214,7 @@ int main (int argc, char *argv[])
     {
         connection = g_socket_client_connect_to_host (client, (gchar*)"127.0.0.1", 1500, NULL, &error);
     }
-    if (error != NULL)
-    {
-        g_error (error->message);
-    }
+	ifnsucceed(error, "connecting to the host");
     istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
     ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
     init_ui();
@@ -250,7 +276,14 @@ int main (int argc, char *argv[])
             }
             if (e.type == SDL_MOUSEBUTTONDOWN)
             {
-                do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+				if (e.button.button == SDL_BUTTON_LEFT)
+				{
+					do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+				}
+				if (e.button.button == SDL_BUTTON_RIGHT)
+				{
+					do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+				}
             }
         }
         g_usleep(600);
