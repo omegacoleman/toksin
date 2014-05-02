@@ -11,10 +11,11 @@ gint64 last_ping_time;
 #define SCR_W 40
 #define SCR_H 30
 #define SCREEN_STEP 1
+#define SCREEN_LARGE_STEP 5
 block screen[SCR_W * SCR_H];
 uint32_t vx, vy;
 magic_code i_magic;
-GError *error = NULL;
+GError* error = NULL;
 
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
 void start_poll_events(GInputStream * istream, GOutputStream * ostream);
@@ -187,19 +188,6 @@ void shut()
     g_print("Bye! \n");
 }
 
-#ifdef _MSC_VER
-
-#include <windows.h>
-
-BOOL CtrlHandler(DWORD fdwCtrlType)
-{
-    shut();
-    exit(0);
-    return FALSE;
-}
-
-#endif
-
 int main (int argc, char *argv[])
 {
     g_type_init();
@@ -218,10 +206,6 @@ int main (int argc, char *argv[])
     istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
     ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
     init_ui();
-#ifdef _MSC_VER
-    SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE);
-#endif
-    atexit(&shut);
     vx = 2000;
     vy = 0x8f - 7;
     flush_screen(istream, ostream);
@@ -243,7 +227,7 @@ int main (int argc, char *argv[])
             }
             if (state[SDL_SCANCODE_S])
             {
-                if (vy <= (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
+                if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
                 {
                     vy += SCREEN_STEP;
                 }
@@ -257,12 +241,40 @@ int main (int argc, char *argv[])
             }
             if (state[SDL_SCANCODE_D])
             {
-                if (vx <= (WORLD_WIDTH - SCREEN_STEP - SCR_W))
+                if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
                 {
                     vx += SCREEN_STEP;
                 }
             }
-            if (state[SDL_SCANCODE_W] || state[SDL_SCANCODE_A] || state[SDL_SCANCODE_S] || state[SDL_SCANCODE_D])
+            if (state[SDL_SCANCODE_I])
+            {
+                if (vy >= SCREEN_LARGE_STEP)
+                {
+                    vy -= SCREEN_LARGE_STEP;
+                }
+            }
+            if (state[SDL_SCANCODE_K])
+            {
+                if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
+                {
+                    vy += SCREEN_LARGE_STEP;
+                }
+            }
+            if (state[SDL_SCANCODE_J])
+            {
+                if (vx >= SCREEN_LARGE_STEP)
+                {
+                    vx -= SCREEN_LARGE_STEP;
+                }
+            }
+            if (state[SDL_SCANCODE_L])
+            {
+                if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
+                {
+                    vx += SCREEN_LARGE_STEP;
+                }
+            }
+            if (state[SDL_SCANCODE_W] || state[SDL_SCANCODE_A] || state[SDL_SCANCODE_S] || state[SDL_SCANCODE_D] || state[SDL_SCANCODE_I] || state[SDL_SCANCODE_J] || state[SDL_SCANCODE_K] || state[SDL_SCANCODE_L])
             {
                 flush_screen(istream, ostream);
             }
@@ -272,6 +284,7 @@ int main (int argc, char *argv[])
         {
             if (e.type == SDL_QUIT)
             {
+				shut();
                 exit(0);
             }
             if (e.type == SDL_MOUSEBUTTONDOWN)
