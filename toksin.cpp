@@ -4,6 +4,8 @@
 #include <glib.h>
 #include <gio/gio.h>
 
+#define NEWEST_BACKUP_FN "C_CWORLD.bin"
+
 world c_world;
 
 inline block gen_natural_block(uint32_t x, uint32_t y)
@@ -33,11 +35,17 @@ void init_world()
 
 void dump_world_to_file()
 {
+	char fn[255] = "";
+	g_snprintf(fn, 255, "CWORLD_%d.bin", g_get_real_time());
+	dump_world_to(fn);
+	dump_world_to(NEWEST_BACKUP_FN);
+}
+
+void dump_world_to(char *fn)
+{
     GFile *fd;
 	GOutputStream *ostream;
 	GError *error = NULL;
-	char fn[255] = "";
-	g_snprintf(fn, 255, "./CWORLD_%d.bin", g_get_real_time());
 	g_message("Dumping world to backup file %s..", fn);
 	fd = g_file_new_for_path(fn);
 	ostream = G_OUTPUT_STREAM(g_file_replace(fd, NULL, FALSE, G_FILE_CREATE_NONE, NULL, &error));
@@ -66,6 +74,49 @@ void dump_world_to_file()
 	if(error != NULL)
 	{
 		g_warning("Failed to dump world to backup file(4) -- better stop. Error: %s", error->message);
+		g_clear_error(&error);
+		return;
+	}
+	g_object_unref(fd);
+}
+
+void try_restore_world()
+{
+	if (g_file_test(NEWEST_BACKUP_FN, G_FILE_TEST_EXISTS))
+	{
+		restore_world_from(NEWEST_BACKUP_FN);
+	} else {
+		g_message("%s not exist. Using default init map.", NEWEST_BACKUP_FN);
+		init_world();
+	}
+}
+
+void restore_world_from(char *fn)
+{
+    GFile *fd;
+	GInputStream *istream;
+	GError *error = NULL;
+	g_message("Restoring world from backup file %s..", fn);
+	fd = g_file_new_for_path(fn);
+	istream = G_INPUT_STREAM(g_file_read(fd, NULL, &error));
+	if(error != NULL)
+	{
+		g_warning("Failed to restore world from backup file(1) -- better stop. Error: %s", error->message);
+		g_clear_error(&error);
+		return;
+	}
+	gsize bytes_written;
+	g_input_stream_read_all(istream, &(c_world.solids), WORLD_HEIGHT * WORLD_WIDTH * sizeof(block), &bytes_written, NULL, &error);
+	if(error != NULL)
+	{
+		g_warning("Failed to restore world from backup file(2) -- better stop. Error: %s", error->message);
+		g_clear_error(&error);
+		return;
+	}
+	g_input_stream_close(istream, NULL, &error);
+	if(error != NULL)
+	{
+		g_warning("Failed to restore world from backup file(3) -- better stop. Error: %s", error->message);
 		g_clear_error(&error);
 		return;
 	}

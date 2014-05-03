@@ -46,5 +46,8 @@ extern world c_world;
 
 void init_world();
 void dump_world_to_file();
+void dump_world_to(char *fn);
+void try_restore_world();
+void restore_world_from(char *fn);
 
 #endif // TOKSIN_H

@@ -344,7 +344,7 @@ gboolean callback_backup(gpointer data)
 int main (int argc, char **argv)
 {
     g_type_init();
-    init_world();
+    try_restore_world();
     GError* error = NULL;
     GSocketService * service = g_socket_service_new();
     g_socket_listener_add_inet_port((GSocketListener*)service, 1500, NULL, &error);
