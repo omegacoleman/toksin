@@ -256,6 +256,23 @@ void respond_to_opcode(GInputStream* istream, GAsyncResult* result, callback_dat
 				return;
 			}
         }
+        res = RSP_FLUSH_DONE;
+        g_output_stream_write_all  (ostream,&MAGIC,sizeof(magic_code),&bytes_transferred,NULL,&error);
+		if (error != NULL)
+		{
+			g_message("Error respond RSP_FLUSH_DONE to client(1) %s: %s", callback_data->s_addr, error->message);
+			*(callback_data->alive) = FALSE;
+			g_clear_error(&error);
+			return;
+		}
+        g_output_stream_write_all  (ostream,&res,sizeof(operation_code),&bytes_transferred,NULL, &error);
+		if (error != NULL)
+		{
+			g_message("Error respond RSP_FLUSH_DONE to client(2) %s: %s", callback_data->s_addr, error->message);
+			*(callback_data->alive) = FALSE;
+			g_clear_error(&error);
+			return;
+		}
     }
     break;
     case OPC_DIG:

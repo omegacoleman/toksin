@@ -17,6 +17,7 @@ static const magic_code ___mc = 0x544B534E;
 #define OPC_DIG 0x00000005
 #define RSP_FLUSH_REQUEST 0x00000006
 #define OPC_PLACE 0x00000007
+#define RSP_FLUSH_DONE 0x00000008
 
 typedef struct _op_get_range
 {
@@ -39,6 +40,13 @@ typedef struct _rsp_set_block
 {
     uint32_t startx, starty, amount;
 } rsp_set_block;
+// Send blocks with it. Send a line at one time.
+
+typedef struct _rsp_atomic_update
+{
+    uint32_t startx, starty;
+	uint64_t atom;
+} rsp_atomic_update;
 // Send blocks with it. Send a line at one time.
 
 
