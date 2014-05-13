@@ -3,7 +3,6 @@
 #include "user_interface.hpp"
 #include "blocks.hpp"
 
-
 static SDL_Window *win;
 static SDL_Renderer *ren;
 static SDL_Texture *tex;
@@ -53,6 +52,30 @@ void draw_map(min_block_type *map, int w, int h)
             cr.x = j * cr.w;
             cr.y = i * cr.h;
             switch(map[i * w + j] & 0xffff)
+            {
+            case BLCK_AIR:
+                SDL_FillRect(surface, &cr, 0xffffffff);
+                break;
+            case BLCK_DIRT:
+                SDL_FillRect(surface, &cr, 0xff000000);
+                break;
+            }
+        }
+    }
+}
+
+void draw_map_with_buff_offset(min_block_type *map, int w, int h, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h)
+{
+    SDL_Rect cr;
+    cr.w = WINDOW_W / w;
+    cr.h = WINDOW_H / h;
+    for (int i = 0; i < h; i++)
+    {
+        for (int j = 0; j < w; j++)
+        {
+            cr.x = j * cr.w;
+            cr.y = i * cr.h;
+			switch(map[((i + buff_off_y + buffer_h) % buffer_h) * buffer_w + ((j + buff_off_x + buffer_w) % buffer_w)] & 0xffff)
             {
             case BLCK_AIR:
                 SDL_FillRect(surface, &cr, 0xffffffff);
