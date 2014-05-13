@@ -3,7 +3,22 @@
 #include "protocol.hpp"
 #include "toksin.hpp"
 
-gint64 last_modify_time;
+// gint64 last_modify_time;
+
+#define ATOM_QUEUE_BUFF_LENGTH 255
+// #define ATOM_QUEUE_BUFF_LENGTH 1024
+rsp_atomic_update atom_queue[ATOM_QUEUE_BUFF_LENGTH];
+gint64 atom_queue_top = 0;
+
+void do_queued_atomic_update(uint32_t x, uint32_t y, block to_set)
+{
+	c_world.solids[y * WORLD_WIDTH + x] = to_set;
+	atom_queue[atom_queue_top].startx = x;
+	atom_queue[atom_queue_top].starty = y;
+	atom_queue[atom_queue_top].atom = to_set;
+	atom_queue_top++;
+	atom_queue_top %= ATOM_QUEUE_BUFF_LENGTH;
+}
 
 typedef struct _callback_data_magic
 {
@@ -52,7 +67,7 @@ static gboolean prepare_need_flush(GSource *source, gint *timeout)
 static gboolean check_need_flush(GSource *source)
 {
     flush_source *mysource = (flush_source *)source;
-    return (*(mysource->cbcnf->last_flush) < last_modify_time);
+    return (*(mysource->cbcnf->last_flush) != atom_queue_top);
 }
 
 static gboolean dispatch_need_flush(GSource *source, GSourceFunc callback, gpointer user_data)
@@ -60,6 +75,7 @@ static gboolean dispatch_need_flush(GSource *source, GSourceFunc callback, gpoin
 	GError* error = NULL;
     flush_source *mysource = (flush_source *)source;
     gsize bytes_transferred;
+	/**
     operation_code res = RSP_FLUSH_REQUEST;
     g_output_stream_write_all(mysource->cbcnf->ostream, &MAGIC, sizeof(magic_code), &bytes_transferred, NULL, &error);
 	if (error != NULL)
@@ -78,6 +94,37 @@ static gboolean dispatch_need_flush(GSource *source, GSourceFunc callback, gpoin
 		return FALSE;
 	}
     *(mysource->cbcnf->last_flush) = g_get_real_time();
+	**/
+	while (*(mysource->cbcnf->last_flush) != atom_queue_top)
+	{
+		operation_code res = RSP_ATOMIC_UPDATE;
+		g_output_stream_write_all(mysource->cbcnf->ostream, &MAGIC, sizeof(magic_code), &bytes_transferred, NULL, &error);
+		if (error != NULL)
+		{
+			g_message("Error sending RSP_ATOMIC_UPDATE to client(1) %s:%s", mysource->cbcnf->s_addr, error->message);
+			*(mysource->cbcnf->alive) = FALSE;
+			g_clear_error(&error);
+			return FALSE;
+		}
+		g_output_stream_write_all(mysource->cbcnf->ostream, &res, sizeof(operation_code), &bytes_transferred, NULL, &error);
+		if (error != NULL)
+		{
+			g_message("Error sending RSP_ATOMIC_UPDATE to client(2) %s:%s", mysource->cbcnf->s_addr, error->message);
+			*(mysource->cbcnf->alive) = FALSE;
+			g_clear_error(&error);
+			return FALSE;
+		}
+		g_output_stream_write_all(mysource->cbcnf->ostream, &(atom_queue[*(mysource->cbcnf->last_flush)]), sizeof(rsp_atomic_update), &bytes_transferred, NULL, &error);
+		if (error != NULL)
+		{
+			g_message("Error sending RSP_ATOMIC_UPDATE to client(3) %s:%s", mysource->cbcnf->s_addr, error->message);
+			*(mysource->cbcnf->alive) = FALSE;
+			g_clear_error(&error);
+			return FALSE;
+		}
+		(*(mysource->cbcnf->last_flush))++;
+		(*(mysource->cbcnf->last_flush)) %= ATOM_QUEUE_BUFF_LENGTH;
+	}
     return TRUE;
 }
 
@@ -112,7 +159,7 @@ gboolean incoming_callback  (GSocketService *service,
                              gpointer user_data)
 {
 	g_object_ref(connection);
-    gint64 *last_flush = new gint64(g_get_real_time());
+	gint64 *last_flush = new gint64(atom_queue_top);
     gboolean* alive = new gboolean(true);
     magic_code* i_magic = new magic_code(0);
     GError* error = NULL;
@@ -292,8 +339,9 @@ void respond_to_opcode(GInputStream* istream, GAsyncResult* result, callback_dat
 			*(callback_data->alive) = FALSE;
 			return;
 		}
-        last_modify_time = g_get_real_time();
-        c_world.solids[dig.ya * WORLD_WIDTH + dig.xa] = BLCK_AIR;
+        // last_modify_time = g_get_real_time();
+        // c_world.solids[dig.ya * WORLD_WIDTH + dig.xa] = BLCK_AIR;
+		do_queued_atomic_update(dig.xa, dig.ya, BLCK_AIR);
     }
     break;
     case OPC_PLACE:
@@ -313,8 +361,9 @@ void respond_to_opcode(GInputStream* istream, GAsyncResult* result, callback_dat
 			*(callback_data->alive) = FALSE;
 			return;
 		}
-        last_modify_time = g_get_real_time();
-		c_world.solids[placement.ya * WORLD_WIDTH + placement.xa] = BLCK_DIRT;
+        // last_modify_time = g_get_real_time();
+		// c_world.solids[placement.ya * WORLD_WIDTH + placement.xa] = BLCK_DIRT;
+		do_queued_atomic_update(placement.xa, placement.ya, BLCK_DIRT);
     }
     break;
     case OPC_PING:
@@ -373,7 +422,7 @@ int main (int argc, char **argv)
     g_socket_service_start(service);
     g_message("Waiting for client!");
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
-    last_modify_time = g_get_real_time();
+    // last_modify_time = g_get_real_time();
 	g_timeout_add_seconds(120, callback_backup, NULL);
 	atexit(dump_world_to_file);
     g_main_loop_run(loop);

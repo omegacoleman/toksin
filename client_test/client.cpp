@@ -186,6 +186,21 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 	case RSP_FLUSH_DONE:
 		flushing = false;
 		break;
+	case RSP_ATOMIC_UPDATE:
+		{
+			rsp_atomic_update rsp_struct;
+			g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_atomic_update), &bytes_read, NULL, &error);
+			ifnsucceed(error, "RSP_ATOMIC_UPDATE in event_hooker s1");
+			g_assert(bytes_read == sizeof(rsp_atomic_update));
+			if ((vx < rsp_struct.startx) && (rsp_struct.startx < (vx + SCR_W)))
+			{
+				if ((vy < rsp_struct.starty) && (rsp_struct.starty < (vy + SCR_H)))
+				{
+					screen[((rsp_struct.starty - vy + off_vy) % BUF_H) * BUF_W + ((rsp_struct.startx - vx + off_vx) % BUF_W)] = rsp_struct.atom;
+				}
+			}
+		}
+		break;
     }
     start_poll_events(istream, ostream);
 }
@@ -258,9 +273,6 @@ int main (int argc, char *argv[])
 		{
 			draw_map_with_buff_offset(screen, SCR_W, SCR_H, off_vx, off_vy, BUF_W, BUF_H);
 			draw_frame();
-		}
-        if(!flushing)
-        {
             const Uint8 *state = SDL_GetKeyboardState(NULL);
             if (state[SDL_SCANCODE_W])
             {
@@ -354,13 +366,16 @@ int main (int argc, char *argv[])
             }
             if (e.type == SDL_MOUSEBUTTONDOWN)
             {
-				if (e.button.button == SDL_BUTTON_LEFT)
+				if (!flushing)
 				{
-					do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
-				}
-				if (e.button.button == SDL_BUTTON_RIGHT)
-				{
-					do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+					if (e.button.button == SDL_BUTTON_LEFT)
+					{
+						do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+					}
+					if (e.button.button == SDL_BUTTON_RIGHT)
+					{
+						do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+					}
 				}
             }
         }
