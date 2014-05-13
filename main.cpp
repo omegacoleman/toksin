@@ -2,6 +2,7 @@
 #include <gio/gio.h>
 #include "protocol.hpp"
 #include "toksin.hpp"
+#include "stdlib.h"
 
 gint64 last_modify_time;
 
