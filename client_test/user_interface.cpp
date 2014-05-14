@@ -8,13 +8,58 @@ static SDL_Renderer *ren;
 static SDL_Texture *tex;
 SDL_Surface *surface;
 
-void init_ui()
+SDL_Surface *s_b_dirt;
+SDL_Surface *s_b_brick;
+SDL_Surface *s_b_grass;
+SDL_Surface *s_b_sky;
+
+SDL_Rect cr;
+int w, h;
+
+void draw_block(min_block_type blck, int x, int y, int rx, int ry)
 {
+    cr.x = x * cr.w;
+    cr.y = y * cr.h;
+    switch(blck & 0xffff)
+    {
+    case BLCK_AIR:
+        // SDL_FillRect(surface, &cr, 0xffffffff);
+        break;
+    case BLCK_DIRT:
+		{
+			// SDL_FillRect(surface, &cr, 0xff000000);
+			SDL_Rect s_cr;
+			s_cr.x = 20 * (rx % 20);
+			s_cr.y = 20 * (ry % 20);
+			s_cr.w = s_cr.h = 20;
+			SDL_BlitSurface(s_b_dirt, &s_cr, surface, &cr);
+		}
+        break;
+    case BLCK_GRASS:
+		{
+			// SDL_FillRect(surface, &cr, 0xff000000);
+			SDL_Rect s_cr;
+			s_cr.x = 20 * (rx % 20);
+			s_cr.y = 20 * (ry % 20);
+			s_cr.w = s_cr.h = 20;
+			SDL_BlitSurface(s_b_grass, &s_cr, surface, &cr);
+		}
+        break;
+    case BLCK_BRICK:
+		SDL_BlitSurface(s_b_brick, NULL, surface, &cr);
+        break;
+    }
+}
+
+void init_ui(int w_, int h_)
+{
+	w = w_;
+	h = h_;
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
     {
         g_error("SDL_Init Error: %s", SDL_GetError());
     }
-    win = SDL_CreateWindow("Toksin 0.0.1", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
+    win = SDL_CreateWindow("Toksin 0.1.0", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
     if (win == NULL)
     {
         g_error("SDL_CreateWindow Error: %s", SDL_GetError());
@@ -25,6 +70,12 @@ void init_ui()
         g_error("SDL_CreateRenderer Error: %s", SDL_GetError());
     }
     surface = SDL_CreateRGBSurface(0, WINDOW_W, WINDOW_H, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+	cr.w = WINDOW_W / w;
+	cr.h = WINDOW_H / h;
+	s_b_dirt = SDL_LoadBMP("./res/dirt.bmp");
+	s_b_brick = SDL_LoadBMP("./res/brick.bmp");
+	s_b_grass = SDL_LoadBMP("./res/grass.bmp");
+	s_b_sky = SDL_LoadBMP("./res/sky_00.bmp");
 }
 
 void draw_frame()
@@ -40,50 +91,27 @@ void draw_frame()
     SDL_RenderPresent(ren);
 }
 
-void draw_map(min_block_type *map, int w, int h)
+void draw_map(min_block_type *map, int vx, int vy)
 {
-    SDL_Rect cr;
-    cr.w = WINDOW_W / w;
-    cr.h = WINDOW_H / h;
+	SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
         {
-            cr.x = j * cr.w;
-            cr.y = i * cr.h;
-            switch(map[i * w + j] & 0xffff)
-            {
-            case BLCK_AIR:
-                SDL_FillRect(surface, &cr, 0xffffffff);
-                break;
-            case BLCK_DIRT:
-                SDL_FillRect(surface, &cr, 0xff000000);
-                break;
-            }
+			draw_block(map[i * w + j], j, i, vx + j, vy + i);
         }
     }
 }
 
-void draw_map_with_buff_offset(min_block_type *map, int w, int h, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h)
+void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h, int vx, int vy)
 {
-    SDL_Rect cr;
-    cr.w = WINDOW_W / w;
-    cr.h = WINDOW_H / h;
+	SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
         {
-            cr.x = j * cr.w;
-            cr.y = i * cr.h;
-			switch(map[((i + buff_off_y + buffer_h) % buffer_h) * buffer_w + ((j + buff_off_x + buffer_w) % buffer_w)] & 0xffff)
-            {
-            case BLCK_AIR:
-                SDL_FillRect(surface, &cr, 0xffffffff);
-                break;
-            case BLCK_DIRT:
-                SDL_FillRect(surface, &cr, 0xff000000);
-                break;
-            }
+			min_block_type cb = map[((i + buff_off_y + buffer_h) % buffer_h) * buffer_w + ((j + buff_off_x + buffer_w) % buffer_w)];
+			draw_block(cb, j, i, vx + j, vy + i);
         }
     }
 }

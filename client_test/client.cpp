@@ -14,11 +14,11 @@ gint64 last_ping_time;
 #define BUF_H (SCR_H * 3)
 #define SCREEN_STEP 1
 #define SCREEN_LARGE_STEP 5
-block screen[BUF_W * BUF_H];
 uint32_t vx, vy;
 uint32_t off_vx, off_vy;
 magic_code i_magic;
 GError* error = NULL;
+block screen[BUF_W * BUF_H + 255];
 
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
 void start_poll_events(GInputStream * istream, GOutputStream * ostream);
@@ -258,7 +258,7 @@ int main (int argc, char *argv[])
 	ifnsucceed(error, "connecting to the host");
     istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
     ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
-    init_ui();
+    init_ui(SCR_W, SCR_H);
     vx = 0;
     vy = 0x8f - 7;
     off_vx = 0;
@@ -271,7 +271,7 @@ int main (int argc, char *argv[])
         // g_main_context_iteration(NULL, FALSE);
 		if (!flushing)
 		{
-			draw_map_with_buff_offset(screen, SCR_W, SCR_H, off_vx, off_vy, BUF_W, BUF_H);
+			draw_map_with_buff_offset(screen, off_vx, off_vy, BUF_W, BUF_H, vx, vy);
 			draw_frame();
             const Uint8 *state = SDL_GetKeyboardState(NULL);
             if (state[SDL_SCANCODE_W])

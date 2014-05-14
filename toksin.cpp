@@ -3,6 +3,7 @@
 #include <math.h>
 #include <glib.h>
 #include <gio/gio.h>
+#include "main.hpp"
 
 #define NEWEST_BACKUP_FN "C_CWORLD.bin"
 
@@ -121,4 +122,24 @@ void restore_world_from(char *fn)
 		return;
 	}
 	g_object_unref(fd);
+}
+
+void anim_world()
+{
+	for(int i = 0; i < WORLD_HEIGHT; i++)
+	{
+		for(int j = 0; j < WORLD_WIDTH; j++)
+		{
+			if (i >= 1)
+			{
+				if ((c_world.solids[i * WORLD_WIDTH + j] == BLCK_DIRT) && (c_world.solids[(i - 1) * WORLD_WIDTH + j] == BLCK_AIR))
+				{
+					do_queued_atomic_update(j, i, BLCK_GRASS);
+				}else if ((c_world.solids[i * WORLD_WIDTH + j] == BLCK_GRASS) && (c_world.solids[(i - 1) * WORLD_WIDTH + j] != BLCK_AIR))
+				{
+					do_queued_atomic_update(j, i, BLCK_DIRT);
+				}
+			}
+		}
+	}
 }

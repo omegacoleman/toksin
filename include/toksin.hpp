@@ -49,5 +49,6 @@ void dump_world_to_file();
 void dump_world_to(char *fn);
 void try_restore_world();
 void restore_world_from(char *fn);
+void anim_world();
 
 #endif // TOKSIN_H

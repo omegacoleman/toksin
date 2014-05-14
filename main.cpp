@@ -363,7 +363,10 @@ void respond_to_opcode(GInputStream* istream, GAsyncResult* result, callback_dat
 		}
         // last_modify_time = g_get_real_time();
 		// c_world.solids[placement.ya * WORLD_WIDTH + placement.xa] = BLCK_DIRT;
-		do_queued_atomic_update(placement.xa, placement.ya, BLCK_DIRT);
+		if (c_world.solids[placement.ya * WORLD_WIDTH + placement.xa] == BLCK_AIR)
+		{
+			do_queued_atomic_update(placement.xa, placement.ya, BLCK_BRICK);
+		}
     }
     break;
     case OPC_PING:
@@ -407,6 +410,12 @@ gboolean callback_backup(gpointer data)
 	return TRUE;
 }
 
+gboolean callback_anim(gpointer data)
+{
+	anim_world();
+	return TRUE;
+}
+
 int main (int argc, char **argv)
 {
     g_type_init();
@@ -424,6 +433,7 @@ int main (int argc, char **argv)
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
     // last_modify_time = g_get_real_time();
 	g_timeout_add_seconds(120, callback_backup, NULL);
+	g_timeout_add_seconds(5, callback_anim, NULL);
 	atexit(dump_world_to_file);
     g_main_loop_run(loop);
     return 0;
