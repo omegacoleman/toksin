@@ -37,7 +37,7 @@ void init_world()
 void dump_world_to_file()
 {
 	char fn[255] = "";
-	g_snprintf(fn, 255, "CWORLD_%d.bin", g_get_real_time());
+	g_snprintf(fn, 255, "CWORLD_%lld.bin", g_get_real_time());
 	dump_world_to(fn);
 	dump_world_to(NEWEST_BACKUP_FN);
 }
