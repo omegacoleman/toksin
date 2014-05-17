@@ -16,37 +16,36 @@ SDL_Surface *s_b_sky;
 SDL_Rect cr;
 int w, h;
 
-void draw_block(min_block_type blck, int x, int y, int rx, int ry)
+void draw_block(min_block_type blck, int x, int y, int rx, int ry, int pw=w, int ph=h)
 {
+	cr.w = WINDOW_W / pw;
+	cr.h = WINDOW_H / ph;
     cr.x = x * cr.w;
     cr.y = y * cr.h;
     switch(blck & 0xffff)
     {
     case BLCK_AIR:
-        // SDL_FillRect(surface, &cr, 0xffffffff);
         break;
     case BLCK_DIRT:
 		{
-			// SDL_FillRect(surface, &cr, 0xff000000);
 			SDL_Rect s_cr;
 			s_cr.x = 20 * (rx % 20);
 			s_cr.y = 20 * (ry % 20);
 			s_cr.w = s_cr.h = 20;
-			SDL_BlitSurface(s_b_dirt, &s_cr, surface, &cr);
+			SDL_BlitScaled(s_b_dirt, &s_cr, surface, &cr);
 		}
         break;
     case BLCK_GRASS:
 		{
-			// SDL_FillRect(surface, &cr, 0xff000000);
 			SDL_Rect s_cr;
 			s_cr.x = 20 * (rx % 20);
 			s_cr.y = 20 * (ry % 20);
 			s_cr.w = s_cr.h = 20;
-			SDL_BlitSurface(s_b_grass, &s_cr, surface, &cr);
+			SDL_BlitScaled(s_b_grass, &s_cr, surface, &cr);
 		}
         break;
     case BLCK_BRICK:
-		SDL_BlitSurface(s_b_brick, NULL, surface, &cr);
+		SDL_BlitScaled(s_b_brick, NULL, surface, &cr);
         break;
     }
 }
@@ -59,7 +58,7 @@ void init_ui(int w_, int h_)
     {
         g_error("SDL_Init Error: %s", SDL_GetError());
     }
-    win = SDL_CreateWindow("Toksin 0.1.0", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
+    win = SDL_CreateWindow("Toksin 0.1.3", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
     if (win == NULL)
     {
         g_error("SDL_CreateWindow Error: %s", SDL_GetError());
@@ -76,6 +75,14 @@ void init_ui(int w_, int h_)
 	s_b_brick = SDL_LoadBMP("./res/brick.bmp");
 	s_b_grass = SDL_LoadBMP("./res/grass.bmp");
 	s_b_sky = SDL_LoadBMP("./res/sky_00.bmp");
+}
+
+void reinit_ui(int w_, int h_)
+{
+	w = w_;
+	h = h_;
+	cr.w = WINDOW_W / w;
+	cr.h = WINDOW_H / h;
 }
 
 void draw_frame()

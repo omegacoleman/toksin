@@ -8,18 +8,24 @@ typedef min_block_type block;
 bool last_ping_ponged = true;
 bool flushing = false;
 gint64 last_ping_time;
-#define SCR_W 40
-#define SCR_H 30
-#define BUF_W (SCR_W * 3)
-#define BUF_H (SCR_H * 3)
-#define SCREEN_STEP 1
-#define SCREEN_LARGE_STEP 5
-uint32_t vx, vy;
-uint32_t off_vx, off_vy;
+#define SCR_W_NORM 40
+#define SCR_H_NORM 30
+#define SCR_W_X 80
+#define SCR_H_X 60
+#define BUF_W (SCR_W_X * 3)
+#define BUF_H (SCR_H_X * 3)
+#define SCREEN_STEP 5
+#define SCREEN_LARGE_STEP 15
+int vx, vy;
+int pr_vx, pr_vy;
+int off_vx, off_vy;
 magic_code i_magic;
 GError* error = NULL;
 block screen[BUF_W * BUF_H + 255];
+bool need_redraw = true;
 
+int SCR_W = SCR_W_NORM;
+int SCR_H = SCR_H_NORM;
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
 void start_poll_events(GInputStream * istream, GOutputStream * ostream);
 
@@ -192,13 +198,14 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 			g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_atomic_update), &bytes_read, NULL, &error);
 			ifnsucceed(error, "RSP_ATOMIC_UPDATE in event_hooker s1");
 			g_assert(bytes_read == sizeof(rsp_atomic_update));
-			if ((vx < rsp_struct.startx) && (rsp_struct.startx < (vx + SCR_W)))
+			if ((vx < (int)rsp_struct.startx) && ((int)rsp_struct.startx < (vx + SCR_W)))
 			{
-				if ((vy < rsp_struct.starty) && (rsp_struct.starty < (vy + SCR_H)))
+				if ((vy < (int)rsp_struct.starty) && ((int)rsp_struct.starty < (vy + SCR_H)))
 				{
 					screen[((rsp_struct.starty - vy + off_vy) % BUF_H) * BUF_W + ((rsp_struct.startx - vx + off_vx) % BUF_W)] = rsp_struct.atom;
 				}
 			}
+			need_redraw = true;
 		}
 		break;
     }
@@ -241,9 +248,200 @@ void shut()
     g_print("Bye! \n");
 }
 
+bool check_need_redraw()
+{
+	if(pr_vx > vx)
+	{
+		pr_vx --;
+		need_redraw = true;
+	}
+	if(pr_vx < vx)
+	{
+		pr_vx ++;
+		need_redraw = true;
+	}
+	if(pr_vy > vy)
+	{
+		pr_vy --;
+		need_redraw = true;
+	}
+	if(pr_vy < vy)
+	{
+		pr_vy ++;
+		need_redraw = true;
+	}
+	return need_redraw;
+}
+
+void step_game()
+{
+	if (!flushing)
+	{
+		check_need_redraw();
+		if(need_redraw)
+		{
+			draw_map_with_buff_offset(screen, off_vx - vx + pr_vx, off_vy - vy + pr_vy, BUF_W, BUF_H, pr_vx, pr_vy);
+			draw_frame();
+			need_redraw = false;
+		}
+		if(! check_need_redraw())
+		{
+			const Uint8 *state = SDL_GetKeyboardState(NULL);
+			if (state[SDL_SCANCODE_W])
+			{
+				if (vy >= SCREEN_STEP)
+				{
+					vy -= SCREEN_STEP;
+					off_vy -= SCREEN_STEP;
+					off_vy += BUF_H;
+					off_vy %= BUF_H;
+					flush_screen(istream, ostream, vx, vy, vx + SCR_W, vy + SCREEN_STEP);
+				}
+			}else if (state[SDL_SCANCODE_S])
+			{
+				if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
+				{
+					vy += SCREEN_STEP;
+					off_vy += SCREEN_STEP;
+					off_vy += BUF_H;
+					off_vy %= BUF_H;
+					flush_screen(istream, ostream, vx, vy + SCR_H - SCREEN_STEP, vx + SCR_W, vy + SCR_H);
+				}
+			}else if (state[SDL_SCANCODE_A])
+			{
+				if (vx >= SCREEN_STEP)
+				{
+					vx -= SCREEN_STEP;
+					off_vx -= SCREEN_STEP;
+					off_vx += BUF_W;
+					off_vx %= BUF_W;
+					flush_screen(istream, ostream, vx, vy, vx + SCREEN_STEP, vy + SCR_H);
+				}
+			}else if (state[SDL_SCANCODE_D])
+			{
+				if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
+				{
+					vx += SCREEN_STEP;
+					off_vx += SCREEN_STEP;
+					off_vx += BUF_W;
+					off_vx %= BUF_W;
+					flush_screen(istream, ostream, vx + SCR_W - SCREEN_STEP, vy, vx + SCR_W, vy + SCR_H);
+				}
+			}else if (state[SDL_SCANCODE_I])
+			{
+				if (vy >= SCREEN_LARGE_STEP)
+				{
+					vy -= SCREEN_LARGE_STEP;
+					off_vy -= SCREEN_LARGE_STEP;
+					off_vy += BUF_H;
+					off_vy %= BUF_H;
+					flush_screen(istream, ostream, vx, vy, vx + SCR_W, vy + SCREEN_LARGE_STEP);
+				}
+			}else if (state[SDL_SCANCODE_K])
+			{
+				if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
+				{
+					vy += SCREEN_LARGE_STEP;
+					off_vy += SCREEN_LARGE_STEP;
+					off_vy += BUF_H;
+					off_vy %= BUF_H;
+					flush_screen(istream, ostream, vx, vy + SCR_H - SCREEN_LARGE_STEP, vx + SCR_W, vy + SCR_H);
+				}
+			}else if (state[SDL_SCANCODE_J])
+			{
+				if (vx >= SCREEN_LARGE_STEP)
+				{
+					vx -= SCREEN_LARGE_STEP;
+					off_vx -= SCREEN_LARGE_STEP;
+					off_vx += BUF_W;
+					off_vx %= BUF_W;
+					flush_screen(istream, ostream, vx, vy, vx + SCREEN_LARGE_STEP, vy + SCR_H);
+				}
+			}else if (state[SDL_SCANCODE_L])
+			{
+				if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
+				{
+					vx += SCREEN_LARGE_STEP;
+					off_vx += SCREEN_LARGE_STEP;
+					off_vx += BUF_W;
+					off_vx %= BUF_W;
+					flush_screen(istream, ostream, vx + SCR_W - SCREEN_LARGE_STEP, vy, vx + SCR_W, vy + SCR_H);
+				}
+			}
+		}
+    }
+    SDL_Event e;
+    while (SDL_PollEvent(&e))
+    {
+        if (e.type == SDL_QUIT)
+        {
+			shut();
+            exit(0);
+        }else if (e.type == SDL_MOUSEBUTTONDOWN)
+        {
+			if (!flushing)
+			{
+				if (e.button.button == SDL_BUTTON_LEFT)
+				{
+					do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+				}
+				if (e.button.button == SDL_BUTTON_RIGHT)
+				{
+					do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+				}
+			}
+        }else if (e.type == SDL_KEYDOWN)
+		{
+			if(!flushing)
+			{
+				if(e.key.keysym.scancode == SDL_SCANCODE_Q)
+				{
+					SCR_W = SCR_W_X;
+					SCR_H = SCR_H_X;
+					reinit_ui(SCR_W, SCR_H);
+					if (vx >= (WORLD_WIDTH - SCR_W))
+					{
+						pr_vx = vx = WORLD_WIDTH - SCR_W - 1;
+					}
+					if (vy >= (WORLD_HEIGHT - SCR_H))
+					{
+						pr_vy = vy = WORLD_HEIGHT - SCR_H - 1;
+					}
+					flush_screen(istream, ostream);
+					need_redraw = true;
+				} else if(e.key.keysym.scancode == SDL_SCANCODE_E)
+				{
+					SCR_W = SCR_W_NORM;
+					SCR_H = SCR_H_NORM;
+					reinit_ui(SCR_W, SCR_H);
+					if (vx >= (WORLD_WIDTH - SCR_W))
+					{
+						pr_vx = vx = WORLD_WIDTH - SCR_W - 1;
+					}
+					if (vy >= (WORLD_HEIGHT - SCR_H))
+					{
+						pr_vy = vy = WORLD_HEIGHT - SCR_H - 1;
+					}
+					flush_screen(istream, ostream);
+					need_redraw = true;
+				}
+			}
+		} else {
+			need_redraw = true;
+		}
+    }
+}
+
+gboolean callback_step(gpointer data)
+{
+	step_game();
+	return TRUE;
+}
+
 int main (int argc, char *argv[])
 {
     g_type_init();
+    GMainLoop *loop = g_main_loop_new(NULL, FALSE);
     GSocketConnection * connection = NULL;
     GSocketClient * client = g_socket_client_new();
     if (argc > 1)
@@ -259,127 +457,13 @@ int main (int argc, char *argv[])
     istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
     ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
     init_ui(SCR_W, SCR_H);
-    vx = 0;
-    vy = 0x8f - 7;
+    pr_vx = vx = 0;
+    pr_vy = vy = 0x8f - 7;
     off_vx = 0;
     off_vy = 0;
     flush_screen(istream, ostream);
     start_poll_events(istream, ostream);
-    while (1)
-    {
-        while(g_main_context_iteration(NULL, FALSE));
-        // g_main_context_iteration(NULL, FALSE);
-		if (!flushing)
-		{
-			draw_map_with_buff_offset(screen, off_vx, off_vy, BUF_W, BUF_H, vx, vy);
-			draw_frame();
-            const Uint8 *state = SDL_GetKeyboardState(NULL);
-            if (state[SDL_SCANCODE_W])
-            {
-                if (vy >= SCREEN_STEP)
-                {
-                    vy -= SCREEN_STEP;
-					off_vy -= SCREEN_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy, vx + SCR_W, vy + SCREEN_STEP);
-                }
-            }else if (state[SDL_SCANCODE_S])
-            {
-                if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
-                {
-                    vy += SCREEN_STEP;
-					off_vy += SCREEN_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy + SCR_H - SCREEN_STEP, vx + SCR_W, vy + SCR_H);
-                }
-            }else if (state[SDL_SCANCODE_A])
-            {
-                if (vx >= SCREEN_STEP)
-                {
-                    vx -= SCREEN_STEP;
-					off_vx -= SCREEN_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx, vy, vx + SCREEN_STEP, vy + SCR_H);
-                }
-            }else if (state[SDL_SCANCODE_D])
-            {
-                if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
-                {
-                    vx += SCREEN_STEP;
-					off_vx += SCREEN_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx + SCR_W - SCREEN_STEP, vy, vx + SCR_W, vy + SCR_H);
-                }
-            }else if (state[SDL_SCANCODE_I])
-            {
-                if (vy >= SCREEN_LARGE_STEP)
-                {
-                    vy -= SCREEN_LARGE_STEP;
-					off_vy -= SCREEN_LARGE_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy, vx + SCR_W, vy + SCREEN_LARGE_STEP);
-                }
-            }else if (state[SDL_SCANCODE_K])
-            {
-                if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
-                {
-                    vy += SCREEN_LARGE_STEP;
-					off_vy += SCREEN_LARGE_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy + SCR_H - SCREEN_LARGE_STEP, vx + SCR_W, vy + SCR_H);
-                }
-            }else if (state[SDL_SCANCODE_J])
-            {
-                if (vx >= SCREEN_LARGE_STEP)
-                {
-                    vx -= SCREEN_LARGE_STEP;
-					off_vx -= SCREEN_LARGE_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx, vy, vx + SCREEN_LARGE_STEP, vy + SCR_H);
-                }
-            }else if (state[SDL_SCANCODE_L])
-            {
-                if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
-                {
-                    vx += SCREEN_LARGE_STEP;
-					off_vx += SCREEN_LARGE_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx + SCR_W - SCREEN_LARGE_STEP, vy, vx + SCR_W, vy + SCR_H);
-                }
-            }
-        }
-        SDL_Event e;
-        while (SDL_PollEvent(&e))
-        {
-            if (e.type == SDL_QUIT)
-            {
-				shut();
-                exit(0);
-            }
-            if (e.type == SDL_MOUSEBUTTONDOWN)
-            {
-				if (!flushing)
-				{
-					if (e.button.button == SDL_BUTTON_LEFT)
-					{
-						do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
-					}
-					if (e.button.button == SDL_BUTTON_RIGHT)
-					{
-						do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
-					}
-				}
-            }
-        }
-        g_usleep(600);
-    }
+	g_timeout_add(30, callback_step, NULL);
+    g_main_loop_run(loop);
     return 0;
 }

@@ -12,5 +12,6 @@ void draw_frame();
 void quit_ui();
 void draw_map(min_block_type *map, int vx, int vy);
 void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h, int vx, int vy);
+void reinit_ui(int w_, int h_);
 
 #endif // USER_INTERFACE_H

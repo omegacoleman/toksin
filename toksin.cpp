@@ -89,6 +89,7 @@ void try_restore_world()
 	} else {
 		g_message("%s not exist. Using default init map.", NEWEST_BACKUP_FN);
 		init_world();
+		anim_world();
 	}
 }
 
