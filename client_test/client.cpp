@@ -12,16 +12,14 @@ gint64 last_ping_time;
 #define SCR_H_NORM 30
 #define SCR_W_X 80
 #define SCR_H_X 60
-#define BUF_W (SCR_W_X * 3)
-#define BUF_H (SCR_H_X * 3)
 #define SCREEN_STEP 5
 #define SCREEN_LARGE_STEP 15
+#define PR_STEP 5
 int vx, vy;
 int pr_vx, pr_vy;
-int off_vx, off_vy;
 magic_code i_magic;
 GError* error = NULL;
-block screen[BUF_W * BUF_H + 255];
+block world_landscape[WORLD_HEIGHT * WORLD_WIDTH];
 bool need_redraw = true;
 
 int SCR_W = SCR_W_NORM;
@@ -65,10 +63,10 @@ void flush_screen(GInputStream * istream, GOutputStream * ostream)
 		ifnsucceed(error, "writing opcode in flush_screen");
         g_assert(bytes_write == sizeof(operation_code));
         op_get_range pend;
-        pend.xa = vx;
-        pend.ya = vy;
-        pend.xb = vx + SCR_W;
-        pend.yb = vy + SCR_H;
+        pend.xa = 0;
+        pend.ya = 0;
+		pend.xb = WORLD_WIDTH - 1;
+		pend.yb = WORLD_HEIGHT - 1;
         g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, &error);
 		ifnsucceed(error, "pending operation in flush_screen");
         g_assert(bytes_write == sizeof(op_get_range));
@@ -166,24 +164,10 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
         g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_set_block), &bytes_read, NULL, &error);
 		ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s1");
         g_assert(bytes_read == sizeof(rsp_set_block));
-		int real_x = rsp_struct.startx - vx + off_vx;
-		real_x += BUF_W;
-		real_x %= BUF_W;
-		int startp = ((rsp_struct.starty - vy + off_vy + BUF_H) % BUF_H) * BUF_W + real_x;
-		if ((real_x + rsp_struct.amount - 1) > BUF_W)
-		{
-			g_input_stream_read_all(istream, &(screen[startp]), sizeof(block) * (BUF_W - real_x), &bytes_read, NULL, &error);
-			ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s3");
-			// g_assert(bytes_read == (sizeof(block) * (BUF_W - real_x)));
-			int startp_ = ((rsp_struct.starty - vy + off_vy + BUF_H) % BUF_H) * BUF_W;
-			g_input_stream_read_all(istream, &(screen[startp_]), sizeof(block) * (real_x + rsp_struct.amount - BUF_W), &bytes_read, NULL, &error);
-			ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s4");
-			// g_assert(bytes_read == (sizeof(block) * (real_x + rsp_struct.amount - BUF_W)));
-		} else {
-			g_input_stream_read_all(istream, &(screen[startp]), sizeof(block) * rsp_struct.amount, &bytes_read, NULL, &error);
-			ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s2");
-			g_assert(bytes_read == (sizeof(block) * rsp_struct.amount));
-		}
+		int startp = rsp_struct.starty * WORLD_WIDTH + rsp_struct.startx;
+		g_input_stream_read_all(istream, &(world_landscape[startp]), sizeof(block) * rsp_struct.amount, &bytes_read, NULL, &error);
+		ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s2");
+		g_assert(bytes_read == (sizeof(block) * rsp_struct.amount));
     }
     break;
     case RSP_FLUSH_REQUEST:
@@ -198,13 +182,7 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 			g_input_stream_read_all(istream, &rsp_struct, sizeof(rsp_atomic_update), &bytes_read, NULL, &error);
 			ifnsucceed(error, "RSP_ATOMIC_UPDATE in event_hooker s1");
 			g_assert(bytes_read == sizeof(rsp_atomic_update));
-			if ((vx < (int)rsp_struct.startx) && ((int)rsp_struct.startx < (vx + SCR_W)))
-			{
-				if ((vy < (int)rsp_struct.starty) && ((int)rsp_struct.starty < (vy + SCR_H)))
-				{
-					screen[((rsp_struct.starty - vy + off_vy) % BUF_H) * BUF_W + ((rsp_struct.startx - vx + off_vx) % BUF_W)] = rsp_struct.atom;
-				}
-			}
+			world_landscape[rsp_struct.starty * WORLD_WIDTH + rsp_struct.startx] = rsp_struct.atom;
 			need_redraw = true;
 		}
 		break;
@@ -215,27 +193,6 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 void start_poll_events(GInputStream * istream, GOutputStream * ostream)
 {
     g_input_stream_read_async(istream, &i_magic, sizeof(magic_code), G_PRIORITY_DEFAULT, NULL, (GAsyncReadyCallback)event_hooker, ostream);
-}
-
-void print_screen()
-{
-    g_print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    for (int i = 0; i < SCR_H; i++)
-    {
-        for (int j = 0; j < SCR_W; j++)
-        {
-            switch(screen[i * SCR_W + j] & 0xffff)
-            {
-            case BLCK_AIR:
-                g_print("  ");
-                break;
-            case BLCK_DIRT:
-                g_print("##");
-                break;
-            }
-        }
-        g_print("\n");
-    }
 }
 
 GInputStream * istream;
@@ -252,22 +209,22 @@ bool check_need_redraw()
 {
 	if(pr_vx > vx)
 	{
-		pr_vx --;
+		pr_vx -= PR_STEP;
 		need_redraw = true;
 	}
 	if(pr_vx < vx)
 	{
-		pr_vx ++;
+		pr_vx += PR_STEP;
 		need_redraw = true;
 	}
 	if(pr_vy > vy)
 	{
-		pr_vy --;
+		pr_vy -= PR_STEP;
 		need_redraw = true;
 	}
 	if(pr_vy < vy)
 	{
-		pr_vy ++;
+		pr_vy += PR_STEP;
 		need_redraw = true;
 	}
 	return need_redraw;
@@ -280,7 +237,7 @@ void step_game()
 		check_need_redraw();
 		if(need_redraw)
 		{
-			draw_map_with_buff_offset(screen, off_vx - vx + pr_vx, off_vy - vy + pr_vy, BUF_W, BUF_H, pr_vx, pr_vy);
+			draw_map_with_buff_offset(world_landscape, pr_vx, pr_vy, WORLD_WIDTH, WORLD_HEIGHT, pr_vx, pr_vy);
 			draw_frame();
 			need_redraw = false;
 		}
@@ -292,80 +249,48 @@ void step_game()
 				if (vy >= SCREEN_STEP)
 				{
 					vy -= SCREEN_STEP;
-					off_vy -= SCREEN_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy, vx + SCR_W, vy + SCREEN_STEP);
 				}
 			}else if (state[SDL_SCANCODE_S])
 			{
 				if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
 				{
 					vy += SCREEN_STEP;
-					off_vy += SCREEN_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy + SCR_H - SCREEN_STEP, vx + SCR_W, vy + SCR_H);
 				}
 			}else if (state[SDL_SCANCODE_A])
 			{
 				if (vx >= SCREEN_STEP)
 				{
 					vx -= SCREEN_STEP;
-					off_vx -= SCREEN_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx, vy, vx + SCREEN_STEP, vy + SCR_H);
 				}
 			}else if (state[SDL_SCANCODE_D])
 			{
 				if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
 				{
 					vx += SCREEN_STEP;
-					off_vx += SCREEN_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx + SCR_W - SCREEN_STEP, vy, vx + SCR_W, vy + SCR_H);
 				}
 			}else if (state[SDL_SCANCODE_I])
 			{
 				if (vy >= SCREEN_LARGE_STEP)
 				{
 					vy -= SCREEN_LARGE_STEP;
-					off_vy -= SCREEN_LARGE_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy, vx + SCR_W, vy + SCREEN_LARGE_STEP);
 				}
 			}else if (state[SDL_SCANCODE_K])
 			{
 				if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
 				{
 					vy += SCREEN_LARGE_STEP;
-					off_vy += SCREEN_LARGE_STEP;
-					off_vy += BUF_H;
-					off_vy %= BUF_H;
-					flush_screen(istream, ostream, vx, vy + SCR_H - SCREEN_LARGE_STEP, vx + SCR_W, vy + SCR_H);
 				}
 			}else if (state[SDL_SCANCODE_J])
 			{
 				if (vx >= SCREEN_LARGE_STEP)
 				{
 					vx -= SCREEN_LARGE_STEP;
-					off_vx -= SCREEN_LARGE_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx, vy, vx + SCREEN_LARGE_STEP, vy + SCR_H);
 				}
 			}else if (state[SDL_SCANCODE_L])
 			{
 				if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
 				{
 					vx += SCREEN_LARGE_STEP;
-					off_vx += SCREEN_LARGE_STEP;
-					off_vx += BUF_W;
-					off_vx %= BUF_W;
-					flush_screen(istream, ostream, vx + SCR_W - SCREEN_LARGE_STEP, vy, vx + SCR_W, vy + SCR_H);
 				}
 			}
 		}
