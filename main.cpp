@@ -6,7 +6,7 @@
 
 // gint64 last_modify_time;
 
-#define ATOM_QUEUE_BUFF_LENGTH 255
+#define ATOM_QUEUE_BUFF_LENGTH 65536
 // #define ATOM_QUEUE_BUFF_LENGTH 1024
 rsp_atomic_update atom_queue[ATOM_QUEUE_BUFF_LENGTH];
 gint64 atom_queue_top = 0;

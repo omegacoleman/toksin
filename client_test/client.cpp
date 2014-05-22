@@ -6,7 +6,8 @@
 
 typedef min_block_type block;
 bool last_ping_ponged = true;
-bool flushing = false;
+bool loading = false;
+int load_percent = 0;
 gint64 last_ping_time;
 #define SCR_W_NORM 40
 #define SCR_H_NORM 30
@@ -54,45 +55,38 @@ void ping(GInputStream * istream, GOutputStream * ostream)
 void flush_screen(GInputStream * istream, GOutputStream * ostream)
 {
     gsize bytes_write;
-    if (!flushing)
-    {
-        flushing = true;
-        do_magic(istream, ostream);
-        operation_code op = OPC_GET_RANGE;
-        g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
-		ifnsucceed(error, "writing opcode in flush_screen");
-        g_assert(bytes_write == sizeof(operation_code));
-        op_get_range pend;
-        pend.xa = 0;
-        pend.ya = 0;
-		pend.xb = WORLD_WIDTH - 1;
-		pend.yb = WORLD_HEIGHT - 1;
-        g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, &error);
-		ifnsucceed(error, "pending operation in flush_screen");
-        g_assert(bytes_write == sizeof(op_get_range));
-    }
+    do_magic(istream, ostream);
+    operation_code op = OPC_GET_RANGE;
+    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+	ifnsucceed(error, "writing opcode in flush_screen");
+    g_assert(bytes_write == sizeof(operation_code));
+    op_get_range pend;
+    pend.xa = 0;
+    pend.ya = 0;
+	pend.xb = WORLD_WIDTH - 1;
+	pend.yb = WORLD_HEIGHT - 1;
+    g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, &error);
+	ifnsucceed(error, "pending operation in flush_screen");
+    g_assert(bytes_write == sizeof(op_get_range));
+	loading = true;
 }
 
 void flush_screen(GInputStream * istream, GOutputStream * ostream, int l ,int t, int r, int b)
 {
     gsize bytes_write;
-    if (!flushing)
-    {
-        flushing = true;
-        do_magic(istream, ostream);
-        operation_code op = OPC_GET_RANGE;
-        g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
-		ifnsucceed(error, "writing opcode in flush_screen");
-        g_assert(bytes_write == sizeof(operation_code));
-        op_get_range pend;
-        pend.xa = l;
-        pend.ya = t;
-        pend.xb = r;
-        pend.yb = b;
-        g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, &error);
-		ifnsucceed(error, "pending operation in flush_screen");
-        g_assert(bytes_write == sizeof(op_get_range));
-    }
+    do_magic(istream, ostream);
+    operation_code op = OPC_GET_RANGE;
+    g_output_stream_write_all(ostream, &op, sizeof(operation_code), &bytes_write, NULL, &error);
+	ifnsucceed(error, "writing opcode in flush_screen");
+    g_assert(bytes_write == sizeof(operation_code));
+    op_get_range pend;
+    pend.xa = l;
+    pend.ya = t;
+    pend.xb = r;
+    pend.yb = b;
+    g_output_stream_write_all(ostream, &pend, sizeof(op_get_range), &bytes_write, NULL, &error);
+	ifnsucceed(error, "pending operation in flush_screen");
+    g_assert(bytes_write == sizeof(op_get_range));
 }
 
 void do_dig(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint32_t y)
@@ -168,13 +162,15 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 		g_input_stream_read_all(istream, &(world_landscape[startp]), sizeof(block) * rsp_struct.amount, &bytes_read, NULL, &error);
 		ifnsucceed(error, "RSP_SET_BLOCK in event_hooker s2");
 		g_assert(bytes_read == (sizeof(block) * rsp_struct.amount));
+		need_redraw = true;
+		load_percent = rsp_struct.starty * 100 / WORLD_HEIGHT;
     }
     break;
     case RSP_FLUSH_REQUEST:
         flush_screen(istream, ostream);
         break;
 	case RSP_FLUSH_DONE:
-		flushing = false;
+		loading = false;
 		break;
 	case RSP_ATOMIC_UPDATE:
 		{
@@ -232,69 +228,75 @@ bool check_need_redraw()
 
 void step_game()
 {
-	if (!flushing)
+	if(loading)
 	{
-		check_need_redraw();
-		if(need_redraw)
+		draw_loading(load_percent);
+		draw_frame();
+		SDL_Event e;
+		while (SDL_PollEvent(&e))
+		{};
+		return ;
+	}
+	check_need_redraw();
+	if(need_redraw)
+	{
+		draw_map_with_buff_offset(world_landscape, pr_vx, pr_vy, WORLD_WIDTH, WORLD_HEIGHT, pr_vx, pr_vy);
+		draw_frame();
+		need_redraw = false;
+	}
+	if(! check_need_redraw())
+	{
+		const Uint8 *state = SDL_GetKeyboardState(NULL);
+		if (state[SDL_SCANCODE_W])
 		{
-			draw_map_with_buff_offset(world_landscape, pr_vx, pr_vy, WORLD_WIDTH, WORLD_HEIGHT, pr_vx, pr_vy);
-			draw_frame();
-			need_redraw = false;
-		}
-		if(! check_need_redraw())
+			if (vy >= SCREEN_STEP)
+			{
+				vy -= SCREEN_STEP;
+			}
+		}else if (state[SDL_SCANCODE_S])
 		{
-			const Uint8 *state = SDL_GetKeyboardState(NULL);
-			if (state[SDL_SCANCODE_W])
+			if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
 			{
-				if (vy >= SCREEN_STEP)
-				{
-					vy -= SCREEN_STEP;
-				}
-			}else if (state[SDL_SCANCODE_S])
+				vy += SCREEN_STEP;
+			}
+		}else if (state[SDL_SCANCODE_A])
+		{
+			if (vx >= SCREEN_STEP)
 			{
-				if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
-				{
-					vy += SCREEN_STEP;
-				}
-			}else if (state[SDL_SCANCODE_A])
+				vx -= SCREEN_STEP;
+			}
+		}else if (state[SDL_SCANCODE_D])
+		{
+			if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
 			{
-				if (vx >= SCREEN_STEP)
-				{
-					vx -= SCREEN_STEP;
-				}
-			}else if (state[SDL_SCANCODE_D])
+				vx += SCREEN_STEP;
+			}
+		}else if (state[SDL_SCANCODE_I])
+		{
+			if (vy >= SCREEN_LARGE_STEP)
 			{
-				if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
-				{
-					vx += SCREEN_STEP;
-				}
-			}else if (state[SDL_SCANCODE_I])
+				vy -= SCREEN_LARGE_STEP;
+			}
+		}else if (state[SDL_SCANCODE_K])
+		{
+			if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
 			{
-				if (vy >= SCREEN_LARGE_STEP)
-				{
-					vy -= SCREEN_LARGE_STEP;
-				}
-			}else if (state[SDL_SCANCODE_K])
+				vy += SCREEN_LARGE_STEP;
+			}
+		}else if (state[SDL_SCANCODE_J])
+		{
+			if (vx >= SCREEN_LARGE_STEP)
 			{
-				if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
-				{
-					vy += SCREEN_LARGE_STEP;
-				}
-			}else if (state[SDL_SCANCODE_J])
+				vx -= SCREEN_LARGE_STEP;
+			}
+		}else if (state[SDL_SCANCODE_L])
+		{
+			if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
 			{
-				if (vx >= SCREEN_LARGE_STEP)
-				{
-					vx -= SCREEN_LARGE_STEP;
-				}
-			}else if (state[SDL_SCANCODE_L])
-			{
-				if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
-				{
-					vx += SCREEN_LARGE_STEP;
-				}
+				vx += SCREEN_LARGE_STEP;
 			}
 		}
-    }
+	}
     SDL_Event e;
     while (SDL_PollEvent(&e))
     {
@@ -304,52 +306,44 @@ void step_game()
             exit(0);
         }else if (e.type == SDL_MOUSEBUTTONDOWN)
         {
-			if (!flushing)
+			if (e.button.button == SDL_BUTTON_LEFT)
 			{
-				if (e.button.button == SDL_BUTTON_LEFT)
-				{
-					do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
-				}
-				if (e.button.button == SDL_BUTTON_RIGHT)
-				{
-					do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
-				}
+				do_dig(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
+			}
+			if (e.button.button == SDL_BUTTON_RIGHT)
+			{
+				do_place(istream , ostream,  e.button.x * SCR_W / WINDOW_W, e.button.y * SCR_H / WINDOW_H);
 			}
         }else if (e.type == SDL_KEYDOWN)
 		{
-			if(!flushing)
+			if(e.key.keysym.scancode == SDL_SCANCODE_Q)
 			{
-				if(e.key.keysym.scancode == SDL_SCANCODE_Q)
+				SCR_W = SCR_W_X;
+				SCR_H = SCR_H_X;
+				reinit_ui(SCR_W, SCR_H);
+				if (vx >= (WORLD_WIDTH - SCR_W))
 				{
-					SCR_W = SCR_W_X;
-					SCR_H = SCR_H_X;
-					reinit_ui(SCR_W, SCR_H);
-					if (vx >= (WORLD_WIDTH - SCR_W))
-					{
-						pr_vx = vx = WORLD_WIDTH - SCR_W - 1;
-					}
-					if (vy >= (WORLD_HEIGHT - SCR_H))
-					{
-						pr_vy = vy = WORLD_HEIGHT - SCR_H - 1;
-					}
-					flush_screen(istream, ostream);
-					need_redraw = true;
-				} else if(e.key.keysym.scancode == SDL_SCANCODE_E)
-				{
-					SCR_W = SCR_W_NORM;
-					SCR_H = SCR_H_NORM;
-					reinit_ui(SCR_W, SCR_H);
-					if (vx >= (WORLD_WIDTH - SCR_W))
-					{
-						pr_vx = vx = WORLD_WIDTH - SCR_W - 1;
-					}
-					if (vy >= (WORLD_HEIGHT - SCR_H))
-					{
-						pr_vy = vy = WORLD_HEIGHT - SCR_H - 1;
-					}
-					flush_screen(istream, ostream);
-					need_redraw = true;
+					pr_vx = vx = WORLD_WIDTH - SCR_W - 1;
 				}
+				if (vy >= (WORLD_HEIGHT - SCR_H))
+				{
+					pr_vy = vy = WORLD_HEIGHT - SCR_H - 1;
+				}
+				need_redraw = true;
+			} else if(e.key.keysym.scancode == SDL_SCANCODE_E)
+			{
+				SCR_W = SCR_W_NORM;
+				SCR_H = SCR_H_NORM;
+				reinit_ui(SCR_W, SCR_H);
+				if (vx >= (WORLD_WIDTH - SCR_W))
+				{
+					pr_vx = vx = WORLD_WIDTH - SCR_W - 1;
+				}
+				if (vy >= (WORLD_HEIGHT - SCR_H))
+				{
+					pr_vy = vy = WORLD_HEIGHT - SCR_H - 1;
+				}
+				need_redraw = true;
 			}
 		} else {
 			need_redraw = true;
@@ -384,11 +378,9 @@ int main (int argc, char *argv[])
     init_ui(SCR_W, SCR_H);
     pr_vx = vx = 0;
     pr_vy = vy = 0x8f - 7;
-    off_vx = 0;
-    off_vy = 0;
     flush_screen(istream, ostream);
     start_poll_events(istream, ostream);
-	g_timeout_add(30, callback_step, NULL);
+	g_timeout_add(35, callback_step, NULL);
     g_main_loop_run(loop);
     return 0;
 }

@@ -12,6 +12,7 @@ SDL_Surface *s_b_dirt;
 SDL_Surface *s_b_brick;
 SDL_Surface *s_b_grass;
 SDL_Surface *s_b_sky;
+SDL_Surface *s_b_logo;
 
 SDL_Rect cr;
 int w, h;
@@ -75,6 +76,7 @@ void init_ui(int w_, int h_)
 	s_b_brick = SDL_LoadBMP("./res/brick.bmp");
 	s_b_grass = SDL_LoadBMP("./res/grass.bmp");
 	s_b_sky = SDL_LoadBMP("./res/sky_00.bmp");
+	s_b_logo = SDL_LoadBMP("./res/logo_a.bmp");
 }
 
 void reinit_ui(int w_, int h_)
@@ -121,6 +123,21 @@ void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off
 			draw_block(cb, j, i, vx + j, vy + i);
         }
     }
+}
+
+void draw_loading(int percent)
+{
+	SDL_FillRect(surface, NULL, 0xFFFFFFFF);
+	SDL_Rect r_s;
+	SDL_Rect r_d;
+	r_s.x = r_s.y = 0;
+	r_s.h = s_b_logo->h;
+	r_s.w = s_b_logo->w * percent / 100;
+	r_d.x = (WINDOW_W - s_b_logo->w) / 2;
+	r_d.y = (WINDOW_H - s_b_logo->h) / 2;
+	r_d.h = s_b_logo->h;
+	r_d.w = s_b_logo->w * percent / 100;
+	SDL_BlitSurface(s_b_logo, &r_s, surface,&r_d);
 }
 
 void quit_ui()
