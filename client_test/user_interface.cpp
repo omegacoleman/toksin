@@ -17,6 +17,49 @@ SDL_Surface *s_b_logo;
 SDL_Rect cr;
 int w, h;
 
+
+typedef struct _flashback_task
+{
+	int x, y;
+	min_block_type inf;
+	int frames_left;
+}flashback_task;
+
+#define FLASHBACK_MAX 255
+#define FLASHBACK_INTERVAL 800
+flashback_task flashbacks[FLASHBACK_MAX];
+int flashback_top = 0;
+bool ui_redraw_needed = false;
+
+void flashback_init()
+{
+	for(int i = 0; i < FLASHBACK_MAX; i++)
+	{
+		flashbacks[i].frames_left = 0;
+	}
+	flashback_top = 0;
+}
+
+gboolean callback_del_flashback(gpointer data)
+{
+	flashback_task *ft = (flashback_task *)data;
+	ft->frames_left = 0;
+	ui_redraw_needed = true;
+	return FALSE;
+}
+
+void new_flashback(int x, int  y, min_block_type inf)
+{
+	flashbacks[flashback_top].x = x;
+	flashbacks[flashback_top].y = y;
+	flashbacks[flashback_top].inf = inf;
+	flashbacks[flashback_top].frames_left = FLASHBACK_INTERVAL;
+	g_timeout_add(FLASHBACK_INTERVAL, callback_del_flashback, &flashbacks[flashback_top]);
+	flashback_top++;
+	flashback_top %= FLASHBACK_MAX;
+	ui_redraw_needed = true;
+}
+
 void draw_block(min_block_type blck, int x, int y, int rx, int ry, int pw=w, int ph=h)
 {
 	cr.w = WINDOW_W / pw;
@@ -26,6 +69,10 @@ void draw_block(min_block_type blck, int x, int y, int rx, int ry, int pw=w, int
     switch(blck & 0xffff)
     {
     case BLCK_AIR:
+		{
+			SDL_Rect s_cr = cr;
+			SDL_BlitScaled(s_b_sky, &s_cr, surface, &cr);
+		}
         break;
     case BLCK_DIRT:
 		{
@@ -59,7 +106,7 @@ void init_ui(int w_, int h_)
     {
         g_error("SDL_Init Error: %s", SDL_GetError());
     }
-    win = SDL_CreateWindow("Toksin 0.1.3", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
+    win = SDL_CreateWindow("Toksin 1.1.3", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
     if (win == NULL)
     {
         g_error("SDL_CreateWindow Error: %s", SDL_GetError());
@@ -102,7 +149,7 @@ void draw_frame()
 
 void draw_map(min_block_type *map, int vx, int vy)
 {
-	SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
+	// SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
@@ -110,11 +157,20 @@ void draw_map(min_block_type *map, int vx, int vy)
 			draw_block(map[i * w + j], j, i, vx + j, vy + i);
         }
     }
+	for(int i = 0; i < FLASHBACK_MAX; i++)
+	{
+		if(flashbacks[i].frames_left > 0)
+		{
+			draw_block(flashbacks[i].inf, flashbacks[i].x, flashbacks[i].y, vx + flashbacks[i].x, vy + flashbacks[i].y);
+			flashbacks[i].frames_left--;
+		}
+	}
+	ui_redraw_needed = false;
 }
 
 void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h, int vx, int vy)
 {
-	SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
+	// SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
@@ -123,6 +179,15 @@ void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off
 			draw_block(cb, j, i, vx + j, vy + i);
         }
     }
+	for(int i = 0; i < FLASHBACK_MAX; i++)
+	{
+		if((flashbacks[i].frames_left > 0) && (flashbacks[i].x >= vx) && (flashbacks[i].x < (vx + w)) && (flashbacks[i].y >= vy) && (flashbacks[i].y < (vy + h)))
+		{
+			draw_block(flashbacks[i].inf, flashbacks[i].x - vx, flashbacks[i].y - vy, flashbacks[i].x, flashbacks[i].y);
+			// flashbacks[i].frames_left--;
+		}
+	}
+	ui_redraw_needed = false;
 }
 
 void draw_loading(int percent)

@@ -5,6 +5,7 @@
 #include "user_interface.hpp"
 
 typedef min_block_type block;
+
 bool last_ping_ponged = true;
 bool loading = false;
 int load_percent = 0;
@@ -29,6 +30,7 @@ void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * o
 void start_poll_events(GInputStream * istream, GOutputStream * ostream);
 
 #define ifnsucceed(e, w) if(e != NULL){g_error("Error occured when : %s", w);}
+
 
 void do_magic(GInputStream * istream, GOutputStream * ostream)
 {
@@ -103,6 +105,7 @@ void do_dig(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint32_
     g_output_stream_write_all(ostream, &dig, sizeof(op_dig), &bytes_write, NULL, &error);
 	ifnsucceed(error, "pending operation in do_dig");
     g_assert(bytes_write == sizeof(op_dig));
+	new_flashback(dig.xa, dig.ya, BLCK_AIR);
 }
 
 void do_place(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint32_t y)
@@ -119,6 +122,7 @@ void do_place(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint3
     g_output_stream_write_all(ostream, &placement, sizeof(op_dig), &bytes_write, NULL, &error);
 	ifnsucceed(error, "pending operation in do_place");
     g_assert(bytes_write == sizeof(op_dig));
+	new_flashback(placement.xa, placement.ya, BLCK_BRICK);
 }
 
 void end_connection(GInputStream * istream, GOutputStream * ostream)
@@ -223,6 +227,7 @@ bool check_need_redraw()
 		pr_vy += PR_STEP;
 		need_redraw = true;
 	}
+	need_redraw = need_redraw || ui_redraw_needed;
 	return need_redraw;
 }
 
@@ -345,6 +350,7 @@ void step_game()
 				}
 				need_redraw = true;
 			}
+		} else if (e.type == SDL_MOUSEMOTION) {
 		} else {
 			need_redraw = true;
 		}
@@ -376,6 +382,7 @@ int main (int argc, char *argv[])
     istream = g_io_stream_get_input_stream (G_IO_STREAM (connection));
     ostream = g_io_stream_get_output_stream (G_IO_STREAM (connection));
     init_ui(SCR_W, SCR_H);
+	flashback_init();
     pr_vx = vx = 0;
     pr_vy = vy = 0x8f - 7;
     flush_screen(istream, ostream);
