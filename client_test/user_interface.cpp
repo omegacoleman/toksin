@@ -149,7 +149,7 @@ void draw_frame()
 
 void draw_map(min_block_type *map, int vx, int vy)
 {
-	// SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
+	SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
@@ -170,7 +170,7 @@ void draw_map(min_block_type *map, int vx, int vy)
 
 void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h, int vx, int vy)
 {
-	// SDL_BlitSurface(s_b_sky, NULL, surface, NULL);
+	SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
