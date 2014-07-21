@@ -12,6 +12,8 @@ SDL_Surface *s_b_dirt;
 SDL_Surface *s_b_brick;
 SDL_Surface *s_b_grass;
 SDL_Surface *s_b_sky;
+SDL_Surface *s_b_sky_night;
+SDL_Surface *s_b_sky_day;
 SDL_Surface *s_b_logo;
 
 SDL_Rect cr;
@@ -122,8 +124,20 @@ void init_ui(int w_, int h_)
 	s_b_dirt = SDL_LoadBMP("./res/dirt.bmp");
 	s_b_brick = SDL_LoadBMP("./res/brick.bmp");
 	s_b_grass = SDL_LoadBMP("./res/grass.bmp");
-	s_b_sky = SDL_LoadBMP("./res/sky_00.bmp");
+	s_b_sky_day = SDL_LoadBMP("./res/sky_01.bmp");
+	s_b_sky_night = SDL_LoadBMP("./res/sky_00.bmp");
+	s_b_sky = SDL_LoadBMP("./res/sky_01.bmp");
 	s_b_logo = SDL_LoadBMP("./res/logo_a.bmp");
+}
+
+void update_sky()
+{
+	gint sec = g_date_time_get_second(g_date_time_new_now_local());
+	Uint8 alph = ABS(sec - 30) * 255 / 30;
+	SDL_BlitSurface(s_b_sky_day, NULL, s_b_sky, NULL);
+	SDL_SetSurfaceAlphaMod(s_b_sky_night, alph);
+	SDL_SetSurfaceBlendMode(s_b_sky_night, SDL_BLENDMODE_BLEND);
+	SDL_BlitSurface(s_b_sky_night, NULL, s_b_sky, NULL);
 }
 
 void reinit_ui(int w_, int h_)
@@ -149,6 +163,7 @@ void draw_frame()
 
 void draw_map(min_block_type *map, int vx, int vy)
 {
+	update_sky();
 	SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     for (int i = 0; i < h; i++)
     {
@@ -170,6 +185,7 @@ void draw_map(min_block_type *map, int vx, int vy)
 
 void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h, int vx, int vy)
 {
+	update_sky();
 	SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     for (int i = 0; i < h; i++)
     {

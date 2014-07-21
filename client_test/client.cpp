@@ -122,7 +122,8 @@ void do_place(GInputStream * istream, GOutputStream * ostream, uint32_t x, uint3
     g_output_stream_write_all(ostream, &placement, sizeof(op_dig), &bytes_write, NULL, &error);
 	ifnsucceed(error, "pending operation in do_place");
     g_assert(bytes_write == sizeof(op_dig));
-	new_flashback(placement.xa, placement.ya, BLCK_BRICK);
+	if (world_landscape[placement.ya * WORLD_WIDTH + placement.xa] == BLCK_AIR)
+		new_flashback(placement.xa, placement.ya, BLCK_BRICK);
 }
 
 void end_connection(GInputStream * istream, GOutputStream * ostream)
@@ -363,6 +364,12 @@ gboolean callback_step(gpointer data)
 	return TRUE;
 }
 
+gboolean callback_redraw(gpointer data)
+{
+	need_redraw = true;
+	return TRUE;
+}
+
 int main (int argc, char *argv[])
 {
     g_type_init();
@@ -386,8 +393,9 @@ int main (int argc, char *argv[])
     pr_vx = vx = 0;
     pr_vy = vy = 0x8f - 7;
     flush_screen(istream, ostream);
-    start_poll_events(istream, ostream);
+	start_poll_events(istream, ostream);
 	g_timeout_add(35, callback_step, NULL);
+	g_timeout_add(1000, callback_redraw, NULL);
     g_main_loop_run(loop);
     return 0;
 }
