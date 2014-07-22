@@ -8,6 +8,9 @@ static SDL_Renderer *ren;
 static SDL_Texture *tex;
 SDL_Surface *surface;
 
+Uint8 curr_transp = 255;
+Uint8 target_transp = 0;
+
 SDL_Surface *s_b_dirt;
 SDL_Surface *s_b_brick;
 SDL_Surface *s_b_grass;
@@ -15,6 +18,7 @@ SDL_Surface *s_b_sky;
 SDL_Surface *s_b_sky_night;
 SDL_Surface *s_b_sky_day;
 SDL_Surface *s_b_logo;
+SDL_Surface *s_b_shadows[2][2][2];
 
 SDL_Rect cr;
 int w, h;
@@ -62,7 +66,7 @@ void new_flashback(int x, int  y, min_block_type inf)
 	ui_redraw_needed = true;
 }
 
-void draw_block(min_block_type blck, int x, int y, int rx, int ry, int pw=w, int ph=h)
+void draw_block(min_block_type blck, int x, int y, int rx, int ry, int pw=w, int ph=h, SDL_Surface *extra=NULL)
 {
 	cr.w = WINDOW_W / pw;
 	cr.h = WINDOW_H / ph;
@@ -98,6 +102,10 @@ void draw_block(min_block_type blck, int x, int y, int rx, int ry, int pw=w, int
 		SDL_BlitScaled(s_b_brick, NULL, surface, &cr);
         break;
     }
+	if (extra != NULL)
+	{
+		SDL_BlitScaled(extra, NULL, surface, &cr);
+	}
 }
 
 void init_ui(int w_, int h_)
@@ -108,7 +116,7 @@ void init_ui(int w_, int h_)
     {
         g_error("SDL_Init Error: %s", SDL_GetError());
     }
-    win = SDL_CreateWindow("Toksin 1.1.3", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
+    win = SDL_CreateWindow("Toksin 1.1.4", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
     if (win == NULL)
     {
         g_error("SDL_CreateWindow Error: %s", SDL_GetError());
@@ -128,16 +136,49 @@ void init_ui(int w_, int h_)
 	s_b_sky_night = SDL_LoadBMP("./res/sky_00.bmp");
 	s_b_sky = SDL_LoadBMP("./res/sky_01.bmp");
 	s_b_logo = SDL_LoadBMP("./res/logo_a.bmp");
+	s_b_shadows[0][0][0] = NULL;
+	s_b_shadows[1][0][0] = SDL_LoadBMP("./res/shadow_001.bmp");
+	s_b_shadows[0][0][1] = SDL_LoadBMP("./res/shadow_100.bmp");
+	s_b_shadows[0][1][0] = SDL_LoadBMP("./res/shadow_010.bmp");
+	s_b_shadows[1][0][1] = SDL_LoadBMP("./res/shadow_101.bmp");
+	s_b_shadows[1][1][1] = SDL_LoadBMP("./res/shadow_111.bmp");
+	s_b_shadows[1][1][0] = SDL_LoadBMP("./res/shadow_011.bmp");
+	s_b_shadows[0][1][1] = SDL_LoadBMP("./res/shadow_110.bmp");
+	SDL_SetColorKey(s_b_shadows[0][0][1], 2, 0xffffffff);
+	SDL_SetColorKey(s_b_shadows[0][1][0], 2, 0xffffffff);
+	SDL_SetColorKey(s_b_shadows[0][1][1], 2, 0xffffffff);
+	SDL_SetColorKey(s_b_shadows[1][0][0], 2, 0xffffffff);
+	SDL_SetColorKey(s_b_shadows[1][0][1], 2, 0xffffffff);
+	SDL_SetColorKey(s_b_shadows[1][1][0], 2, 0xffffffff);
+	SDL_SetColorKey(s_b_shadows[1][1][1], 2, 0xffffffff);
 }
 
 void update_sky()
 {
-	gint sec = g_date_time_get_second(g_date_time_new_now_local());
-	Uint8 alph = ABS(sec - 30) * 255 / 30;
-	SDL_BlitSurface(s_b_sky_day, NULL, s_b_sky, NULL);
-	SDL_SetSurfaceAlphaMod(s_b_sky_night, alph);
-	SDL_SetSurfaceBlendMode(s_b_sky_night, SDL_BLENDMODE_BLEND);
-	SDL_BlitSurface(s_b_sky_night, NULL, s_b_sky, NULL);
+	if (target_transp != curr_transp)
+	{
+		curr_transp += ((target_transp - curr_transp) > 0) ? 5 : -5;
+		SDL_BlitSurface(s_b_sky_day, NULL, s_b_sky, NULL);
+		SDL_SetSurfaceAlphaMod(s_b_sky_night, curr_transp);
+		SDL_SetSurfaceBlendMode(s_b_sky_night, SDL_BLENDMODE_BLEND);
+		SDL_BlitSurface(s_b_sky_night, NULL, s_b_sky, NULL);
+	}
+}
+
+void change_day_and_night()
+{
+	if (target_transp == 0)
+	{
+		target_transp = 255;
+	}
+	else {
+		target_transp = 0;
+	}
+}
+
+bool day_night_need_update()
+{
+	return (target_transp != curr_transp);
 }
 
 void reinit_ui(int w_, int h_)
@@ -183,27 +224,48 @@ void draw_map(min_block_type *map, int vx, int vy)
 	ui_redraw_needed = false;
 }
 
+#define GET_BLOCK_FROM_BUFFER(b, x, y, bx, by, bw, bh) b[((y + by + bh) % bh) * bw + ((x + bx + bw) % bw)]
+
 void draw_map_with_buff_offset(min_block_type *map, int buff_off_x, int buff_off_y, int buffer_w, int buffer_h, int vx, int vy)
 {
+#define GET_BLOCK_FROM_THIS(x, y) GET_BLOCK_FROM_BUFFER(map, x, y, buff_off_x, buff_off_y, buffer_w, buffer_h)
 	update_sky();
 	SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
         {
-			min_block_type cb = map[((i + buff_off_y + buffer_h) % buffer_h) * buffer_w + ((j + buff_off_x + buffer_w) % buffer_w)];
-			draw_block(cb, j, i, vx + j, vy + i);
+			min_block_type cb = GET_BLOCK_FROM_THIS(j, i);
+			if (cb == BLCK_AIR)
+			{
+				int pu = GET_BLOCK_FROM_THIS(j - 1, i) != BLCK_AIR;
+				int pl = GET_BLOCK_FROM_THIS(j, i - 1) != BLCK_AIR;
+				int plu = GET_BLOCK_FROM_THIS(j - 1, i - 1) != BLCK_AIR;
+				draw_block(cb, j, i, vx + j, vy + i, w, h, s_b_shadows[pu][plu][pl]);
+			} else {
+				draw_block(cb, j, i, vx + j, vy + i);
+			}
         }
     }
 	for(int i = 0; i < FLASHBACK_MAX; i++)
 	{
 		if((flashbacks[i].frames_left > 0) && (flashbacks[i].x >= vx) && (flashbacks[i].x < (vx + w)) && (flashbacks[i].y >= vy) && (flashbacks[i].y < (vy + h)))
 		{
-			draw_block(flashbacks[i].inf, flashbacks[i].x - vx, flashbacks[i].y - vy, flashbacks[i].x, flashbacks[i].y);
+			if (flashbacks[i].inf == BLCK_AIR)
+			{
+				int pu = GET_BLOCK_FROM_THIS(flashbacks[i].x - vx - 1, flashbacks[i].y - vy) != BLCK_AIR;
+				int pl = GET_BLOCK_FROM_THIS(flashbacks[i].x - vx, flashbacks[i].y - vy - 1) != BLCK_AIR;
+				int plu = GET_BLOCK_FROM_THIS(flashbacks[i].x - vx - 1, flashbacks[i].y - vy - 1) != BLCK_AIR;
+				draw_block(flashbacks[i].inf, flashbacks[i].x - vx, flashbacks[i].y - vy, flashbacks[i].x, flashbacks[i].y, w, h, s_b_shadows[pu][plu][pl]);
+			}
+			else {
+				draw_block(flashbacks[i].inf, flashbacks[i].x - vx, flashbacks[i].y - vy, flashbacks[i].x, flashbacks[i].y);
+			}
 			// flashbacks[i].frames_left--;
 		}
 	}
 	ui_redraw_needed = false;
+#undef GET_BLOCK_FROM_THIS
 }
 
 void draw_loading(int percent)

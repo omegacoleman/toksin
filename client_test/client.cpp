@@ -23,7 +23,6 @@ magic_code i_magic;
 GError* error = NULL;
 block world_landscape[WORLD_HEIGHT * WORLD_WIDTH];
 bool need_redraw = true;
-
 int SCR_W = SCR_W_NORM;
 int SCR_H = SCR_H_NORM;
 void event_hooker(GInputStream* istream, GAsyncResult* result, GOutputStream * ostream);
@@ -228,6 +227,8 @@ bool check_need_redraw()
 		pr_vy += PR_STEP;
 		need_redraw = true;
 	}
+	if (day_night_need_update() == true)
+		need_redraw = true;
 	need_redraw = need_redraw || ui_redraw_needed;
 	return need_redraw;
 }
@@ -250,57 +251,54 @@ void step_game()
 		draw_frame();
 		need_redraw = false;
 	}
-	if(! check_need_redraw())
+	const Uint8 *state = SDL_GetKeyboardState(NULL);
+	if (state[SDL_SCANCODE_W])
 	{
-		const Uint8 *state = SDL_GetKeyboardState(NULL);
-		if (state[SDL_SCANCODE_W])
+		if (vy >= SCREEN_STEP)
 		{
-			if (vy >= SCREEN_STEP)
-			{
-				vy -= SCREEN_STEP;
-			}
-		}else if (state[SDL_SCANCODE_S])
+			vy -= SCREEN_STEP;
+		}
+	}else if (state[SDL_SCANCODE_S])
+	{
+		if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
 		{
-			if (vy < (WORLD_HEIGHT - SCREEN_STEP - SCR_H))
-			{
-				vy += SCREEN_STEP;
-			}
-		}else if (state[SDL_SCANCODE_A])
+			vy += SCREEN_STEP;
+		}
+	}else if (state[SDL_SCANCODE_A])
+	{
+		if (vx >= SCREEN_STEP)
 		{
-			if (vx >= SCREEN_STEP)
-			{
-				vx -= SCREEN_STEP;
-			}
-		}else if (state[SDL_SCANCODE_D])
+			vx -= SCREEN_STEP;
+		}
+	}else if (state[SDL_SCANCODE_D])
+	{
+		if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
 		{
-			if (vx < (WORLD_WIDTH - SCREEN_STEP - SCR_W))
-			{
-				vx += SCREEN_STEP;
-			}
-		}else if (state[SDL_SCANCODE_I])
+			vx += SCREEN_STEP;
+		}
+	}else if (state[SDL_SCANCODE_I])
+	{
+		if (vy >= SCREEN_LARGE_STEP)
 		{
-			if (vy >= SCREEN_LARGE_STEP)
-			{
-				vy -= SCREEN_LARGE_STEP;
-			}
-		}else if (state[SDL_SCANCODE_K])
+			vy -= SCREEN_LARGE_STEP;
+		}
+	}else if (state[SDL_SCANCODE_K])
+	{
+		if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
 		{
-			if (vy < (WORLD_HEIGHT - SCREEN_LARGE_STEP - SCR_H))
-			{
-				vy += SCREEN_LARGE_STEP;
-			}
-		}else if (state[SDL_SCANCODE_J])
+			vy += SCREEN_LARGE_STEP;
+		}
+	}else if (state[SDL_SCANCODE_J])
+	{
+		if (vx >= SCREEN_LARGE_STEP)
 		{
-			if (vx >= SCREEN_LARGE_STEP)
-			{
-				vx -= SCREEN_LARGE_STEP;
-			}
-		}else if (state[SDL_SCANCODE_L])
+			vx -= SCREEN_LARGE_STEP;
+		}
+	}else if (state[SDL_SCANCODE_L])
+	{
+		if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
 		{
-			if (vx < (WORLD_WIDTH - SCREEN_LARGE_STEP - SCR_W))
-			{
-				vx += SCREEN_LARGE_STEP;
-			}
+			vx += SCREEN_LARGE_STEP;
 		}
 	}
     SDL_Event e;
@@ -364,9 +362,9 @@ gboolean callback_step(gpointer data)
 	return TRUE;
 }
 
-gboolean callback_redraw(gpointer data)
+gboolean callback_change_day_night(gpointer data)
 {
-	need_redraw = true;
+	change_day_and_night();
 	return TRUE;
 }
 
@@ -395,7 +393,7 @@ int main (int argc, char *argv[])
     flush_screen(istream, ostream);
 	start_poll_events(istream, ostream);
 	g_timeout_add(35, callback_step, NULL);
-	g_timeout_add(1000, callback_redraw, NULL);
+	g_timeout_add(30000, callback_change_day_night, NULL);
     g_main_loop_run(loop);
     return 0;
 }

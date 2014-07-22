@@ -16,6 +16,8 @@ void reinit_ui(int w_, int h_);
 void draw_loading(int percent);
 void flashback_init();
 void new_flashback(int x, int  y, min_block_type inf);
+void change_day_and_night();
+bool day_night_need_update();
 
 extern bool ui_redraw_needed;
 
